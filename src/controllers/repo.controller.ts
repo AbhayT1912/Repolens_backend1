@@ -2,18 +2,27 @@ import { Request, Response } from "express";
 import { asyncHandler } from "../utils/asyncHandler";
 import { repoQueue } from "../config/queue";
 import { RepoModel } from "../models/repo.model";
-import { normalizeRepoUrl } from "../utils/repoUrl.util";
+import { normalizeRepoUrl, validateGithubRepoUrl } from "../utils/repoUrl.util";
+import { AppError } from "../utils/AppError";
+
 
 export const analyzeRepository = asyncHandler(
   async (req: Request, res: Response) => {
-    const { repo_url } = req.body;
+    let { repo_url } = req.body;
 
-    // ✅ Proper normalization
-    const normalizedUrl = normalizeRepoUrl(repo_url);
+    if (!repo_url || typeof repo_url !== "string") {
+      throw new AppError("Repository URL is required", 400);
+    }
 
-    // 🔍 Check existing repo (ignore FAILED ones)
+    repo_url = normalizeRepoUrl(repo_url);
+
+    if (!validateGithubRepoUrl(repo_url)) {
+      throw new AppError("Invalid GitHub repository URL format", 400);
+    }
+
+    // Duplicate protection
     const existingRepo = await RepoModel.findOne({
-      repo_url: normalizedUrl,
+      repo_url,
       status: { $ne: "FAILED" },
     });
 
@@ -27,12 +36,12 @@ export const analyzeRepository = asyncHandler(
     }
 
     const repo = await RepoModel.create({
-      repo_url: normalizedUrl,
+      repo_url,
       status: "RECEIVED",
     });
 
     await repoQueue.add("process-repo", {
-      repoUrl: normalizedUrl,
+      repoUrl: repo_url,
       repoId: repo._id.toString(),
     });
 

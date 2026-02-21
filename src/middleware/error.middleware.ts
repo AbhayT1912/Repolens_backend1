@@ -1,7 +1,5 @@
 import { Request, Response, NextFunction } from "express";
 import { AppError } from "../utils/AppError";
-import { logger } from "../config/logger";
-import { ENV } from "../config/env";
 
 export const globalErrorHandler = (
   err: any,
@@ -9,24 +7,21 @@ export const globalErrorHandler = (
   res: Response,
   next: NextFunction
 ) => {
-  let error = err;
+  let statusCode = 500;
+  let message = "Internal Server Error";
 
-  // If not an operational error, convert it
-  if (!(error instanceof AppError)) {
-    logger.error("Unexpected error", { message: error.message, stack: error.stack });
-
-    error = new AppError("Internal Server Error", 500);
+  if (err instanceof AppError) {
+    statusCode = err.statusCode;
+    message = err.message;
+  } else if (err.message) {
+    message = err.message;
   }
 
-  const response = {
+  return res.status(statusCode).json({
     success: false,
-    message: error.message,
-  };
-
-  // Hide stack trace in production
-  if (ENV.NODE_ENV === "development") {
-    Object.assign(response, { stack: err.stack });
-  }
-
-  res.status(error.statusCode).json(response);
+    error: {
+      message,
+      status: statusCode,
+    },
+  });
 };

@@ -6,7 +6,6 @@ import rateLimit from "express-rate-limit";
 import { globalErrorHandler } from "./middleware/error.middleware";
 import { ENV } from "./config/env";
 import { logger } from "./config/logger";
-import { AppError } from "./utils/AppError";
 import repoRoutes from "./routes/v1/repo.routes";
 
 
@@ -66,7 +65,15 @@ app.get("/error-test", () => {
 app.use("/api/v1", repoRoutes);
 
 
-
+app.use((req, res) => {
+  return res.status(404).json({
+    success: false,
+    error: {
+      message: "Route not found",
+      status: 404,
+    },
+  });
+});
 /* ========================
    ERROR HANDLING
 ======================== */

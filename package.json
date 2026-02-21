@@ -16,6 +16,7 @@
     "@babel/parser": "^7.29.0",
     "@babel/traverse": "^7.29.0",
     "@babel/types": "^7.29.0",
+    "axios": "^1.13.5",
     "bullmq": "^5.69.3",
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
