@@ -4,25 +4,27 @@ import { RepoModel } from "../models/repo.model";
 import { asyncHandler } from "../utils/asyncHandler";
 import { AppError } from "../utils/AppError";
 import { sanitizeQuestion } from "../utils/question.util";
-import { buildContextForRepo } from "../utils/contextBuilder.util";
 import { askAIService } from "../services/ai.service";
 
 export const askQuestion = asyncHandler(
   async (req: Request, res: Response) => {
     const { repo_id, question } = req.body;
 
+    // Validate repo_id
     if (!repo_id || !mongoose.Types.ObjectId.isValid(repo_id)) {
       throw new AppError("Invalid repository ID", 400);
     }
 
+    // Sanitize question
     const sanitizedQuestion = sanitizeQuestion(question);
 
+    // Check repo exists
     const repo = await RepoModel.findById(repo_id);
-
     if (!repo) {
       throw new AppError("Repository not found", 404);
     }
 
+    // Check repo is ready
     if (repo.status !== "READY") {
       throw new AppError(
         "Repository not ready for queries",
@@ -30,21 +32,15 @@ export const askQuestion = asyncHandler(
       );
     }
 
-    const context = await buildContextForRepo(repo_id);
-
-    const aiResponse = await askAIService({
-      repoId: repo_id,
-      question: sanitizedQuestion,
-      context,
-    });
+    // 🔥 Forward to external RAG service
+    const answer = await askAIService(repo_id, sanitizedQuestion);
 
     return res.status(200).json({
       success: true,
       data: {
         repo_id,
         question: sanitizedQuestion,
-        answer: aiResponse.answer || "No response",
-        confidence: aiResponse.confidence || null,
+        answer,
       },
     });
   }

@@ -6,11 +6,12 @@ import { getRepoPath } from "../utils/repoPath.util";
 import { scanRepository } from "./scanner.service";
 import { parseRepository } from "./parser.service";
 import { logger } from "../config/logger";
+import { ingestToRAG } from "./ai.service";
+import { ingestRepoToRAG } from "./rag.service";
+import { generateRepoReport } from "./report.service";
 
-export const processRepository = async (
-  repoUrl: string,
-  repoId: string
-) => {
+
+export const processRepository = async (repoUrl: string, repoId: string) => {
   const repoPath = getRepoPath(repoId);
 
   try {
@@ -54,14 +55,18 @@ export const processRepository = async (
     const { buildCallGraph } = await import("./graph.service");
     await buildCallGraph(repoId);
 
+    await generateRepoReport(repoId);
+
     // ✅ READY
     await RepoModel.findByIdAndUpdate(repoId, {
       status: "READY",
       completed_at: new Date(),
     });
 
-    logger.info("Repository ready", { repo_id: repoId });
+    // 🔥 Trigger RAG ingestion after repo is ready
+    await ingestRepoToRAG(repoPath, repoId);
 
+    logger.info("Repository ready", { repo_id: repoId });
   } catch (error: any) {
     await RepoModel.findByIdAndUpdate(repoId, {
       status: "FAILED",
