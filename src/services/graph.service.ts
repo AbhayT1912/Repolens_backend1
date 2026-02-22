@@ -2,13 +2,15 @@ import mongoose from "mongoose";
 import { FunctionModel } from "../models/function.model";
 import { CallModel } from "../models/call.model";
 import { logger } from "../config/logger";
+import { object } from "zod";
 
 export const buildCallGraph = async (repoId: string) => {
   logger.info("Graph building started", { repo_id: repoId });
 
-  // ✅ Reset now includes outgoing_calls
+  const repoObjectId = new mongoose.Types.ObjectId(repoId);
+
   await FunctionModel.updateMany(
-    { repo_id: repoId },
+    { repo_id: repoObjectId },
     {
       is_entry: false,
       is_dead: false,
@@ -18,8 +20,6 @@ export const buildCallGraph = async (repoId: string) => {
     }
   );
 
-  const repoObjectId = new mongoose.Types.ObjectId(repoId);
-
   const functions = await FunctionModel.find({
     repo_id: repoObjectId,
   }).lean();
@@ -27,6 +27,7 @@ export const buildCallGraph = async (repoId: string) => {
   const calls = await CallModel.find({
     repo_id: repoObjectId,
   }).lean();
+  console.log("DEBUG -> total calls:",calls.length);
 
   // Build graph in memory
   const graph: Record<string, string[]> = {};
@@ -43,6 +44,8 @@ export const buildCallGraph = async (repoId: string) => {
       graph[caller].push(callee);
     }
   }
+
+  // console.log("DEBUG: GRAPH NON EMPTY:",object.entries(graph).filter(([_, v]) => v.length > 0).length);
 
   // Build reverse adjacency
   const reverseAdj = new Map<string, string[]>();
@@ -160,7 +163,7 @@ for (const fn of functions) {
 
   finalBulkOps.push({
     updateOne: {
-      filter: { _id: fnId },
+      filter: { _id: new mongoose.Types.ObjectId(fnId) },
       update: {
         depth: depthMap.get(fnId) ?? 0,
         component_id:

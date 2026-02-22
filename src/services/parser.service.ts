@@ -24,16 +24,13 @@ export const parseRepository = async (repoId: string) => {
 
   for (const file of files) {
     const ext = path.extname(file.path);
-
     if (!SUPPORTED_EXTENSIONS.includes(ext)) continue;
 
     const absolutePath = path.join(basePath, file.path);
-
     if (!fs.existsSync(absolutePath)) continue;
 
     try {
       const code = fs.readFileSync(absolutePath, "utf-8");
-
       const isTypeScript = ext === ".ts" || ext === ".tsx";
 
       const ast = parse(code, {
@@ -58,10 +55,14 @@ export const parseRepository = async (repoId: string) => {
       const callsToInsert: any[] = [];
 
       let currentFunction: string | null = null;
-      let complexity = 1; // Start with 1 for the function itself
+      let complexity = 1;
+
+      // ============================
+      // FIRST PASS — COLLECT FUNCTIONS & IMPORTS
+      // ============================
+
       traverse(ast, {
-        // -----------------------
-        // FUNCTION COMPLEXITY
+        // Complexity
         IfStatement() {
           complexity++;
         },
@@ -85,9 +86,8 @@ export const parseRepository = async (repoId: string) => {
             complexity++;
           }
         },
-        // -----------------------
-        // IMPORTS
-        // -----------------------
+
+        // Imports
         ImportDeclaration(path) {
           const node = path.node;
 
@@ -110,9 +110,7 @@ export const parseRepository = async (repoId: string) => {
           });
         },
 
-        // -----------------------
-        // FUNCTION TRACKING
-        // -----------------------
+        // Function Declarations
         FunctionDeclaration: {
           enter(path) {
             if (!path.node.id) return;
@@ -132,6 +130,7 @@ export const parseRepository = async (repoId: string) => {
           },
         },
 
+        // Arrow / Function Expressions
         VariableDeclarator(path) {
           const node = path.node;
 
@@ -150,33 +149,95 @@ export const parseRepository = async (repoId: string) => {
             });
           }
         },
+      });
 
-        // -----------------------
-        // CALL EXPRESSIONS
-        // -----------------------
+      // ============================
+      // INSERT FUNCTIONS FIRST
+      // ============================
+
+      let insertedFunctions: any[] = [];
+
+      if (functionsToInsert.length > 0) {
+        insertedFunctions = await FunctionModel.insertMany(functionsToInsert);
+        totalFunctionCount += insertedFunctions.length;
+      }
+
+      // Build function name → id map
+      const functionMap = new Map<string, mongoose.Types.ObjectId>();
+      for (const fn of insertedFunctions) {
+        functionMap.set(fn.name, fn._id);
+      }
+
+      // ============================
+      // SECOND PASS — RESOLVE CALLS
+      // ============================
+
+      // SECOND PASS — RESOLVE CALLS
+      traverse(ast, {
+        FunctionDeclaration: {
+          enter(path) {
+            if (!path.node.id) return;
+            currentFunction = path.node.id.name;
+          },
+          exit(path) {
+            if (path.node.id?.name === currentFunction) {
+              currentFunction = null;
+            }
+          },
+        },
+
+        VariableDeclarator: {
+          enter(path) {
+            const node = path.node;
+
+            if (
+              t.isIdentifier(node.id) &&
+              (t.isArrowFunctionExpression(node.init) ||
+                t.isFunctionExpression(node.init))
+            ) {
+              currentFunction = node.id.name;
+            }
+          },
+          exit(path) {
+            const node = path.node;
+            if (t.isIdentifier(node.id) && node.id.name === currentFunction) {
+              currentFunction = null;
+            }
+          },
+        },
+
         CallExpression(path) {
           const node = path.node;
 
-          let calleeName = "unknown";
+          if (!currentFunction) return;
+
+          let calleeName: string | null = null;
 
           if (t.isIdentifier(node.callee)) {
             calleeName = node.callee.name;
           }
 
+          if (!calleeName) return;
+
+          if (!functionMap.has(calleeName)) return;
+
+          const callerId = functionMap.get(currentFunction);
+          const calleeId = functionMap.get(calleeName);
+
+          if (!callerId || !calleeId) return;
+
           callsToInsert.push({
             repo_id: repoObjectId,
             file_id: file._id,
-            caller_function_name: currentFunction ?? null,
-            callee_name: calleeName,
+            caller_function_id: callerId,
+            callee_function_id: calleeId,
             start_line: node.loc?.start.line ?? 0,
           });
         },
       });
-
-      if (functionsToInsert.length > 0) {
-        await FunctionModel.insertMany(functionsToInsert);
-        totalFunctionCount += functionsToInsert.length;
-      }
+      // ============================
+      // INSERT IMPORTS & CALLS
+      // ============================
 
       if (importsToInsert.length > 0) {
         await ImportModel.insertMany(importsToInsert);

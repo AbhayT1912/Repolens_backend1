@@ -5,6 +5,110 @@ import { ImportModel } from "../models/import.model";
 import { asyncHandler } from "../utils/asyncHandler";
 import { AppError } from "../utils/AppError";
 
+/* ===============================
+   TARJAN SCC
+================================ */
+function findStronglyConnectedComponents(
+  adj: Record<string, string[]>
+) {
+  let index = 0;
+  const stack: string[] = [];
+  const indices: Record<string, number> = {};
+  const lowlink: Record<string, number> = {};
+  const onStack: Record<string, boolean> = {};
+  const sccs: string[][] = [];
+
+  function strongConnect(node: string) {
+    indices[node] = index;
+    lowlink[node] = index;
+    index++;
+
+    stack.push(node);
+    onStack[node] = true;
+
+    for (const neighbor of adj[node] || []) {
+      if (indices[neighbor] === undefined) {
+        strongConnect(neighbor);
+        lowlink[node] = Math.min(lowlink[node], lowlink[neighbor]);
+      } else if (onStack[neighbor]) {
+        lowlink[node] = Math.min(lowlink[node], indices[neighbor]);
+      }
+    }
+
+    if (lowlink[node] === indices[node]) {
+      const component: string[] = [];
+      let w: string | undefined;
+
+      do {
+        w = stack.pop();
+        if (!w) break;
+        onStack[w] = false;
+        component.push(w);
+      } while (w !== node);
+
+      sccs.push(component);
+    }
+  }
+
+  for (const node of Object.keys(adj)) {
+    if (indices[node] === undefined) {
+      strongConnect(node);
+    }
+  }
+
+  return sccs;
+}
+
+/* ===============================
+   HEALTH SCORE CALCULATION
+================================ */
+function calculateArchitectureHealthScore(
+  totalFiles: number,
+  totalDependencies: number,
+  cycles: any[]
+) {
+  const totalCycles = cycles.length;
+  const largestCycleSize = cycles.reduce(
+    (max, c) => Math.max(max, c.size),
+    0
+  );
+
+  const severitySum = cycles.reduce(
+    (sum, c) => sum + c.severity_score,
+    0
+  );
+
+  const density =
+    totalFiles > 0 ? totalDependencies / totalFiles : 0;
+
+  const cyclePenalty = Math.min(30, totalCycles * 5);
+  const largestCyclePenalty = Math.min(20, largestCycleSize * 3);
+  const densityPenalty = Math.min(25, density * 5);
+  const severityPenalty = Math.min(25, severitySum / 10);
+
+  let score =
+    100 -
+    cyclePenalty -
+    largestCyclePenalty -
+    densityPenalty -
+    severityPenalty;
+
+  if (score < 0) score = 0;
+
+  return {
+    score: Math.round(score),
+    breakdown: {
+      cyclePenalty,
+      largestCyclePenalty,
+      densityPenalty,
+      severityPenalty,
+    },
+  };
+}
+
+/* ===============================
+   CONTROLLER
+================================ */
 export const getFileGraph = asyncHandler(
   async (req: Request, res: Response) => {
     const { repoId } = req.params;
@@ -15,7 +119,6 @@ export const getFileGraph = asyncHandler(
 
     const repoObjectId = new mongoose.Types.ObjectId(repoId);
 
-    // 🔹 Fetch files
     const files = await FileModel.find({
       repo_id: repoObjectId,
     }).lean();
@@ -25,78 +128,122 @@ export const getFileGraph = asyncHandler(
         success: true,
         data: {
           repo_id: repoId,
-          nodes: [],
-          edges: [],
+          total_files: 0,
+          total_dependencies: 0,
+          cycles: [],
+          architecture_health_score: 100,
+          health_breakdown: {},
         },
       });
     }
 
-    // 🔹 Build file map
-    const filePathMap = new Map<string, any>();
-
-    for (const file of files) {
-      filePathMap.set(file._id.toString(), {
-        id: file._id.toString(),
-        label: file.path,
-        language: file.language,
-        size: file.size,
-      });
-    }
-
-    // 🔹 Fetch imports
     const imports = await ImportModel.find({
       repo_id: repoObjectId,
     }).lean();
 
-    const edgeSet = new Set<string>();
+    /* ===============================
+       BUILD NORMALIZED PATH MAP
+    ================================ */
+    const normalizedPathMap = new Map<string, string>();
+
+    for (const file of files) {
+      const normalized = file.path
+        .replace(/\\/g, "/")
+        .replace(/\.ts$|\.js$/, "")
+        .toLowerCase();
+
+      normalizedPathMap.set(
+        normalized,
+        file._id.toString()
+      );
+    }
+
+    /* ===============================
+       BUILD EDGES
+    ================================ */
     const edges: { from: string; to: string }[] = [];
+    const edgeSet = new Set<string>();
 
     for (const imp of imports) {
       const fromFile = imp.file_id?.toString();
-      const targetPath = imp.source; // assuming stored as string
+      if (!fromFile || !imp.source) continue;
 
-      if (!fromFile || !targetPath) continue;
+      const normalizedImport = imp.source
+        .replace(/\\/g, "/")
+        .replace(/^\.\//, "")
+        .replace(/^\.\.\//, "")
+        .replace(/\.ts$|\.js$/, "")
+        .toLowerCase();
 
-      // Find target file by path match
-      const targetFile = files.find((f) =>
-        f.path.includes(targetPath)
+      const matched = Array.from(
+        normalizedPathMap.entries()
+      ).find(([filePath]) =>
+        filePath.endsWith(normalizedImport)
       );
 
-      if (!targetFile) continue;
+      if (!matched) continue;
 
-      const toFile = targetFile._id.toString();
-
+      const toFile = matched[1];
       const edgeKey = `${fromFile}->${toFile}`;
 
       if (!edgeSet.has(edgeKey)) {
         edgeSet.add(edgeKey);
-        edges.push({
-          from: fromFile,
-          to: toFile,
-        });
+        edges.push({ from: fromFile, to: toFile });
       }
     }
 
-    // Sort edges deterministically
-    edges.sort((a, b) => {
-      if (a.from === b.from) {
-        return a.to.localeCompare(b.to);
-      }
-      return a.from.localeCompare(b.from);
-    });
+    /* ===============================
+       BUILD ADJACENCY LIST
+    ================================ */
+    const adj: Record<string, string[]> = {};
 
-    const nodes = Array.from(filePathMap.values()).sort((a, b) =>
-      a.label.localeCompare(b.label)
+    for (const file of files) {
+      adj[file._id.toString()] = [];
+    }
+
+    for (const edge of edges) {
+      adj[edge.from].push(edge.to);
+    }
+
+    /* ===============================
+       FIND CYCLES
+    ================================ */
+    const sccs = findStronglyConnectedComponents(adj);
+
+    const cycles = sccs
+      .filter((c) => c.length > 1)
+      .map((cycle) => {
+        let totalEdges = 0;
+        for (const node of cycle) {
+          totalEdges += adj[node].length;
+        }
+
+        return {
+          nodes: cycle,
+          size: cycle.length,
+          total_internal_edges: totalEdges,
+          severity_score: cycle.length * totalEdges,
+        };
+      });
+
+    /* ===============================
+       HEALTH SCORE
+    ================================ */
+    const health = calculateArchitectureHealthScore(
+      files.length,
+      edges.length,
+      cycles
     );
 
     return res.status(200).json({
       success: true,
       data: {
         repo_id: repoId,
-        node_count: nodes.length,
-        edge_count: edges.length,
-        nodes,
-        edges,
+        total_files: files.length,
+        total_dependencies: edges.length,
+        cycles,
+        architecture_health_score: health.score,
+        health_breakdown: health.breakdown,
       },
     });
   }

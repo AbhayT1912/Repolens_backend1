@@ -4,8 +4,8 @@ export interface CallDocument extends Document {
   repo_id: mongoose.Types.ObjectId;
   file_id: mongoose.Types.ObjectId;
 
-  caller_function_name?: string; // if inside function
-  callee_name: string;
+  caller_function_id: mongoose.Types.ObjectId;
+  callee_function_id: mongoose.Types.ObjectId;
 
   start_line: number;
 }
@@ -22,12 +22,15 @@ const CallSchema = new Schema<CallDocument>(
       required: true,
       index: true,
     },
-    caller_function_name: {
-      type: String,
-    },
-    callee_name: {
-      type: String,
+    caller_function_id: {
+      type: Schema.Types.ObjectId,
       required: true,
+      index: true,
+    },
+    callee_function_id: {
+      type: Schema.Types.ObjectId,
+      required: true,
+      index: true,
     },
     start_line: {
       type: Number,
@@ -36,6 +39,12 @@ const CallSchema = new Schema<CallDocument>(
   },
   { timestamps: true }
 );
+
+CallSchema.index({
+  repo_id: 1,
+  caller_function_id: 1,
+  callee_function_id: 1,
+});
 
 export const CallModel = mongoose.model<CallDocument>(
   "Call",

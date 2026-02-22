@@ -12,6 +12,7 @@ export interface FunctionDocument extends Document {
   complexity?: number;
   is_entry?: boolean;
   centrality_score?: number;
+  outgoing_calls?: mongoose.Types.ObjectId[];   // ✅ ADDED
   created_at: Date;
 }
 
@@ -36,13 +37,21 @@ const FunctionSchema = new Schema<FunctionDocument>(
     complexity: { type: Number, default: 1 },
     is_entry: { type: Boolean, default: false },
     centrality_score: { type: Number, default: 0 },
+
+    // ✅ THIS IS THE CRITICAL FIELD
+    outgoing_calls: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: "Function",
+      },
+    ],
   },
   {
     timestamps: { createdAt: "created_at", updatedAt: false },
-  },
+  }
 );
 
 export const FunctionModel = mongoose.model<FunctionDocument>(
   "Function",
-  FunctionSchema,
+  FunctionSchema
 );
