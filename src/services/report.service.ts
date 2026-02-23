@@ -25,7 +25,6 @@ const LAYER_ORDER = [
 
 export const generateRepoReport = async (repoId: string) => {
   const repoObjectId = new mongoose.Types.ObjectId(repoId);
-
   const repo = await RepoModel.findById(repoId);
   if (!repo) throw new Error("Repo not found");
 
@@ -85,8 +84,8 @@ export const generateRepoReport = async (repoId: string) => {
       .replace(/\.ts$|\.js$/, "")
       .toLowerCase();
 
-    const matched = Array.from(normalizedPathMap.entries()).find(
-      ([filePath]) => filePath.endsWith(normalizedImport)
+    const matched = Array.from(normalizedPathMap.entries()).find(([filePath]) =>
+      filePath.endsWith(normalizedImport),
     );
 
     if (!matched) continue;
@@ -115,8 +114,80 @@ export const generateRepoReport = async (repoId: string) => {
 
   const aiResponse = await askAIService(
     repoId,
-    "Provide a high level architecture overview of this repository."
+    "Provide a high level architecture overview of this repository.",
   );
+
+  // 🔥 NEW — INVESTOR SUMMARY
+  const investorSummary = buildInvestorSummary({
+    totalFunctions,
+    deadFunctions,
+    complexityMetrics,
+    layerAnalysis,
+    dependencyDensity,
+  });
+
+  const architectureHealthScore = calculateArchitectureHealthScore({
+    layerAnalysis,
+    complexityMetrics,
+    deadFunctions,
+    totalFunctions,
+    dependencyDensity,
+  });
+
+
+  // 🔥 NEW — RISK EXPOSURE
+  const riskExposure = calculateRiskExposure({
+    complexityMetrics,
+    layerAnalysis,
+    dependencyDensity,
+    deadFunctions,
+    totalFunctions,
+  });
+
+  // 🔥 NEW — ENGINEERING MATURITY
+  const maturity = calculateEngineeringMaturity({
+    architecture_health_score: architectureHealthScore,
+    layer_analysis: layerAnalysis,
+    complexity_metrics: complexityMetrics,
+    dead_functions_count: deadFunctions,
+    total_functions: totalFunctions,
+  });
+
+  // 🔥 NEW — VERSION & SCORE DELTA
+  const previousReport = await RepoReportModel.findOne({ repo_id: repoObjectId, }).sort({ created_at: -1 }).lean();
+
+  const version = previousReport ? previousReport.version + 1 : 1;
+  let scoreDelta = {
+  architecture: 0,
+  layer: 0,
+  complexity: 0,
+  dead_functions: 0,
+};
+
+if (previousReport) {
+  scoreDelta = {
+    architecture:
+      architectureHealthScore -
+      (previousReport.architecture_health_score ?? 0),
+
+    layer:
+      layerAnalysis.layer_health_score -
+      (previousReport.layer_analysis?.layer_health_score ?? 0),
+
+    complexity:
+      Number(
+        (
+          complexityMetrics.average_complexity -
+          (previousReport.complexity_metrics?.average_complexity ?? 0)
+        ).toFixed(2)
+      ),
+
+    dead_functions:
+      deadFunctions -
+      (previousReport.dead_functions_count ?? 0),
+  };
+}
+
 
   const report = await RepoReportModel.create({
     repo_id: repoId,
@@ -131,6 +202,13 @@ export const generateRepoReport = async (repoId: string) => {
     complexity_metrics: complexityMetrics,
     layer_analysis: layerAnalysis,
     dependency_density: dependencyDensity,
+    investor_summary: investorSummary,
+    risk_exposure: riskExposure,
+    maturity: maturity,
+    version,
+    score_delta: scoreDelta,
+    previous_version_id: previousReport?._id ?? null,
+    architecture_health_score: architectureHealthScore,
   });
 
   return report;
@@ -186,16 +264,14 @@ export async function calculateComplexityMetrics(repoId: string) {
 function inferLayerFromPath(filePath: string): string {
   const normalized = filePath.replace(/\\/g, "/").toLowerCase();
 
-  const match = LAYER_ORDER.find((layer) =>
-    normalized.includes(`/${layer}/`)
-  );
+  const match = LAYER_ORDER.find((layer) => normalized.includes(`/${layer}/`));
 
   return match ?? "unknown";
 }
 
 export function analyzeLayerSeparation(
   files: any[],
-  edges: { from: string; to: string }[]
+  edges: { from: string; to: string }[],
 ) {
   const fileLayerMap = new Map<string, string>();
 
@@ -226,11 +302,7 @@ export function analyzeLayerSeparation(
     const fromIndex = LAYER_ORDER.indexOf(fromLayer);
     const toIndex = LAYER_ORDER.indexOf(toLayer);
 
-    if (
-      fromIndex !== -1 &&
-      toIndex !== -1 &&
-      fromIndex > toIndex
-    ) {
+    if (fromIndex !== -1 && toIndex !== -1 && fromIndex > toIndex) {
       violations.push({
         from_layer: fromLayer,
         to_layer: toLayer,
@@ -241,10 +313,7 @@ export function analyzeLayerSeparation(
 
   const totalViolations = violations.length;
 
-  const layerHealthScore = Math.max(
-    0,
-    100 - totalViolations * 5
-  );
+  const layerHealthScore = Math.max(0, 100 - totalViolations * 5);
 
   return {
     layer_matrix: layerMatrix,
@@ -260,7 +329,7 @@ export function analyzeLayerSeparation(
 
 function calculateDependencyDensity(
   files: any[],
-  edges: { from: string; to: string }[]
+  edges: { from: string; to: string }[],
 ) {
   const incoming: Record<string, number> = {};
   const outgoing: Record<string, number> = {};
@@ -288,11 +357,106 @@ function calculateDependencyDensity(
     };
   });
 
-  const repoDensity =
-    files.length > 0 ? edges.length / files.length : 0;
+  const repoDensity = files.length > 0 ? edges.length / files.length : 0;
 
   return {
     repo_density: Number(repoDensity.toFixed(2)),
     file_density: fileDensity,
   };
+}
+
+function calculateEngineeringMaturity(report: any) {
+  const arch = report.architecture_health_score ?? 80;
+  const layer = report.layer_analysis?.layer_health_score ?? 80;
+
+  const complexity = report.complexity_metrics?.average_complexity ?? 5;
+
+  const deadRatio = report.dead_functions_count / report.total_functions;
+
+  let score =
+    arch * 0.35 +
+    layer * 0.25 +
+    (100 - complexity * 5) * 0.2 +
+    (100 - deadRatio * 100) * 0.2;
+
+  score = Math.max(0, Math.min(100, score));
+
+  let grade = "D";
+  if (score >= 90) grade = "A";
+  else if (score >= 75) grade = "B";
+  else if (score >= 60) grade = "C";
+
+  return {
+    maturity_score: Math.round(score),
+    maturity_grade: grade,
+  };
+}
+
+function buildInvestorSummary(data: any) {
+  const riskLevel =
+    data.deadFunctions > data.totalFunctions * 0.3
+      ? "High Structural Risk"
+      : data.complexityMetrics.average_complexity > 8
+      ? "Moderate Maintainability Risk"
+      : "Stable Engineering Base";
+
+  return {
+    risk_level: riskLevel,
+    total_functions: data.totalFunctions,
+    dead_functions: data.deadFunctions,
+    avg_complexity: data.complexityMetrics.average_complexity,
+    total_layer_violations: data.layerAnalysis.total_violations,
+    repo_density: data.dependencyDensity.repo_density,
+    strategic_note:
+      "Engineering health impacts scalability, onboarding speed, and long-term refactor cost.",
+  };
+}
+
+function calculateRiskExposure(data: any) {
+  const complexityRisk =
+    data.complexityMetrics.average_complexity * 10;
+
+  const deadRatio =
+    data.deadFunctions / Math.max(1, data.totalFunctions);
+
+  const deadRisk = deadRatio * 100;
+
+  const layerRisk =
+    data.layerAnalysis.total_violations * 5;
+
+  const densityRisk =
+    data.dependencyDensity.repo_density * 10;
+
+  return {
+    complexity_risk_score: Math.round(complexityRisk),
+    dead_code_risk_score: Math.round(deadRisk),
+    layer_violation_risk_score: Math.round(layerRisk),
+    dependency_density_risk_score: Math.round(densityRisk),
+  };
+}
+
+function calculateArchitectureHealthScore(data: any) {
+  const layerPenalty = data.layerAnalysis.total_violations * 3;
+
+  const complexityPenalty =
+    data.complexityMetrics.average_complexity * 2;
+
+  const deadRatio =
+    data.deadFunctions / Math.max(1, data.totalFunctions);
+
+  const deadPenalty = deadRatio * 40;
+
+  const densityPenalty =
+    data.dependencyDensity.repo_density * 5;
+
+  let score =
+    100 -
+    layerPenalty -
+    complexityPenalty -
+    deadPenalty -
+    densityPenalty;
+
+  score = Math.max(0, Math.min(100, score));
+
+  return Math.round(score);
 }

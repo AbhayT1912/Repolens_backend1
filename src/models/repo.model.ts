@@ -2,6 +2,8 @@ import mongoose, { Document, Schema } from "mongoose";
 import { RepoStatus } from "../types/repo.types";
 
 export interface RepoDocument extends Document {
+  owner_id: { type: String, required: true };
+
   repo_url: string;
   status: RepoStatus;
 
@@ -19,6 +21,7 @@ export interface RepoDocument extends Document {
 
 const RepoSchema = new Schema<RepoDocument>(
   {
+    owner_id: { type: String, required: true },
     repo_url: { type: String, required: true, unique: true, index: true },
 
     status: {

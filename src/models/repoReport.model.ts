@@ -1,4 +1,5 @@
 import mongoose, { Document, Schema } from "mongoose";
+import { fa } from "zod/locales";
 
 export interface RepoReportDocument extends Document {
   repo_id: mongoose.Types.ObjectId;
@@ -14,6 +15,16 @@ export interface RepoReportDocument extends Document {
   complexity_metrics: any;
   layer_analysis: any;
   dependency_density: any;
+
+  version: number;
+  previous_version_id: mongoose.Types.ObjectId;
+
+  score_delta: {
+    architecture: number;
+    layer: number;
+    complexity: number;
+    dead_functions: number;
+  }
 
   generated_at: Date;
 }
@@ -43,6 +54,20 @@ const RepoReportSchema = new Schema<RepoReportDocument>(
     generated_at: {
       type: Date,
       default: Date.now,
+    },
+    version: {
+      type: Number,
+      required: true,
+    },
+    previous_version_id: {
+      type: Schema.Types.ObjectId,
+      ref: "RepoReport",
+    },
+    score_delta: {
+        architecture: { type: Number, default: 0 },
+        layer: { type: Number, default: 0 },
+        complexity: { type: Number, default: 0 },
+        dead_functions: { type: Number, default: 0 },
     },
   },
   {
