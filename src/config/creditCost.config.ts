@@ -1,5 +1,5 @@
 export const CREDIT_COSTS = {
-  ANALYZE: 5, // Cost in credits for performing an analysis
+  ANALYZE: 10, // Cost in credits for performing an analysis
   IMPACT_ANALYSIS: 3, // Cost in credits for performing an impact analysis
   PDF_DOWNLOAD: 5, // Cost in credits for downloading a PDF report
   RISK_RANKING: 3, // Cost in credits for getting a risk ranking

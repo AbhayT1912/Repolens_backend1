@@ -12,31 +12,33 @@ import { getLayerAnalysis } from "../../controllers/layerDetection.controller";
 import { requireAuth } from "../../middleware/auth.middleware";
 import { requireRepoOwnership } from "../../middleware/ownership.middleware";
 import { deductCredits } from "../../middleware/credit.middleware";
+import { deductCreditsOncePerRepoFeature } from "../../middleware/credit.middleware";
 import { CREDIT_COSTS } from "../../config/creditCost.config";
 import { getUserRepositories } from "../../controllers/repo.controller";
+import { getDashboardSummary } from "../../controllers/repo.controller";
 
 const router = Router();
 
 router.post(
   "/analyze",
   analyzeRateLimiter,
-  analyzeRepository,
   requireAuth,
-  requireRepoOwnership,
-  deductCredits(CREDIT_COSTS.ANALYZE)
+  analyzeRepository,
 );
 
-router.get("/:repoId/graph", deductCredits(CREDIT_COSTS.GRAPH), requireAuth, requireRepoOwnership, getCallGraph);
-router.get("/:repoId/file-graph", deductCredits(CREDIT_COSTS.FILE_GRAPH_ANALYSIS), requireAuth, requireRepoOwnership, getFileGraph);
-router.get("/:repoId/structure",deductCredits(CREDIT_COSTS.STRUCTURE), requireAuth, requireRepoOwnership, getStructure);
-router.post("/ask", deductCredits(CREDIT_COSTS.ASK_AI), askQuestion);
-router.get("/:repoId/report", deductCredits(CREDIT_COSTS.REPO_REPORT), requireAuth, requireRepoOwnership, getRepoReport);
-router.get("/:repoId/impact/:fileId", deductCredits(CREDIT_COSTS.IMPACT_ANALYSIS), requireAuth, requireRepoOwnership, getImpactAnalysis);
-router.get("/:repoId/risk-ranking", deductCredits(CREDIT_COSTS.RISK_RANKING), requireAuth, requireRepoOwnership, getRiskRanking);
-router.get("/:repoId/layer-analysis", deductCredits(CREDIT_COSTS.LAYER_ANALYSIS), requireAuth, requireRepoOwnership, getLayerAnalysis);
-router.get("/:repoId/report/pdf", deductCredits(CREDIT_COSTS.PDF_DOWNLOAD), requireAuth, requireRepoOwnership, downloadExecutivePDF);
+router.get("/:repoId/graph", requireAuth, requireRepoOwnership,deductCreditsOncePerRepoFeature("graph", CREDIT_COSTS.GRAPH), getCallGraph);
+router.get("/:repoId/file-graph", requireAuth, requireRepoOwnership, deductCreditsOncePerRepoFeature("file-graph", CREDIT_COSTS.FILE_GRAPH_ANALYSIS), getFileGraph);
+router.get("/:repoId/structure", requireAuth, requireRepoOwnership,deductCreditsOncePerRepoFeature("structure", CREDIT_COSTS.STRUCTURE), getStructure);
+router.post("/ask", requireAuth, deductCredits(CREDIT_COSTS.ASK_AI), askQuestion);
+router.get("/:repoId/report", requireAuth, requireRepoOwnership, deductCreditsOncePerRepoFeature("report", CREDIT_COSTS.REPO_REPORT), getRepoReport);
+router.get("/:repoId/impact/:fileId", requireAuth, requireRepoOwnership, deductCredits(CREDIT_COSTS.IMPACT_ANALYSIS), getImpactAnalysis);
+router.get("/:repoId/risk-ranking", requireAuth, requireRepoOwnership, deductCreditsOncePerRepoFeature("risk-ranking", CREDIT_COSTS.RISK_RANKING), getRiskRanking);
+router.get("/:repoId/layer-analysis", requireAuth, requireRepoOwnership, deductCreditsOncePerRepoFeature("layer-analysis", CREDIT_COSTS.LAYER_ANALYSIS), getLayerAnalysis);
+router.get("/:repoId/report/pdf", requireAuth, requireRepoOwnership, deductCredits(CREDIT_COSTS.PDF_DOWNLOAD), downloadExecutivePDF);
 router.get("/:repoId/history", requireAuth, requireRepoOwnership, getRepoHistory);
 router.get("/my-repos", requireAuth, getUserRepositories);
+router.get("/myrepo", requireAuth, getUserRepositories);
+router.get("/dashboard-summary", requireAuth, getDashboardSummary);
 
 
 export default router;

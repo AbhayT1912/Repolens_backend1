@@ -6,6 +6,10 @@ import { normalizeRepoUrl, validateGithubRepoUrl } from "../utils/repoUrl.util";
 import { AppError } from "../utils/AppError";
 import { UsageModel } from "../models/usage.model";
 import { RepoReportModel } from "../models/repoReport.model";
+import { UserModel } from "../models/user.model";
+import { deductUserCredits } from "../middleware/credit.middleware";
+import { CREDIT_COSTS } from "../config/creditCost.config";
+import { CreditChargeModel } from "../models/creditCharge.model";
 
 export const analyzeRepository = asyncHandler(
   async (req: Request, res: Response) => {
@@ -35,8 +39,20 @@ export const analyzeRepository = asyncHandler(
         message: "Repository already being processed or ready.",
       });
     }
+    
+    const creditDeduction = await deductUserCredits(
+      req.auth.userId,
+      CREDIT_COSTS.ANALYZE
+    );
+
+    if (!creditDeduction.ok) {
+      return res.status(creditDeduction.status).json({
+        message: creditDeduction.message,
+      });
+    }
 
     const repo = await RepoModel.create({
+      owner_id: req.auth.userId,
       repo_url,
       status: "RECEIVED",
     });
@@ -112,6 +128,57 @@ export const getUserRepositories = asyncHandler(
     res.status(200).json({
       success: true,
       data: response,
+    });
+  }
+);
+
+export const getDashboardSummary = asyncHandler(
+  async (req: any, res: Response) => {
+    const userId = req.auth.userId;
+
+    const [usage, user, repoCount, savedAnalyses, oneTimeCharges] = await Promise.all([
+      UsageModel.findOne({ user_id: userId }).lean(),
+      UserModel.findOne({ clerk_user_id: userId }).lean(),
+      RepoModel.countDocuments({ owner_id: userId }),
+      RepoReportModel.aggregate([
+        {
+          $lookup: {
+            from: "repositories",
+            localField: "repo_id",
+            foreignField: "_id",
+            as: "repo",
+          },
+        },
+        { $unwind: "$repo" },
+        { $match: { "repo.owner_id": userId } },
+        { $count: "count" },
+      ]),
+      CreditChargeModel.aggregate([
+        { $match: { user_id: userId } },
+        { $group: { _id: null, total: { $sum: "$cost" } } },
+      ]),
+    ]);
+
+    const creditsLeft = user?.credits ?? 0;
+    const analysesCount = usage?.analyses_count ?? 0;
+    const aiTokensUsed = usage?.ai_tokens_used ?? 0;
+    const oneTimeUsedCredits = oneTimeCharges[0]?.total ?? 0;
+    const totalUsedCredits = Math.max(
+      0,
+      analysesCount * CREDIT_COSTS.ANALYZE + oneTimeUsedCredits
+    );
+    const totalSavedAnalyses = savedAnalyses[0]?.count ?? 0;
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        repos_analyzed: repoCount,
+        analyses_saved: totalSavedAnalyses,
+        ai_tokens_used: aiTokensUsed,
+        credits_left: creditsLeft,
+        credits_used: totalUsedCredits,
+        credits_limit: 100,
+      },
     });
   }
 );

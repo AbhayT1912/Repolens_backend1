@@ -9,7 +9,9 @@ const envSchema = z.object({
   MAX_REPO_SIZE_MB: z.string(),
   CLONE_TIMEOUT: z.string(),
   TEMP_DIR_PATH: z.string(),
-  MONGO_URI: z.string()
+  MONGO_URI: z.string(),
+  CLERK_SECRET_KEY: z.string(),
+  CLERK_WEBHOOK_SECRET: z.string(),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -26,4 +28,6 @@ export const ENV = {
   CLONE_TIMEOUT: Number(parsed.data.CLONE_TIMEOUT),
   TEMP_DIR_PATH: parsed.data.TEMP_DIR_PATH,
   MONGO_URI: parsed.data.MONGO_URI,
+  CLERK_SECRET_KEY: parsed.data.CLERK_SECRET_KEY,
+  CLERK_WEBHOOK_SECRET: parsed.data.CLERK_WEBHOOK_SECRET,
 };

@@ -7,6 +7,7 @@ import { globalErrorHandler } from "./middleware/error.middleware";
 import { ENV } from "./config/env";
 import { logger } from "./config/logger";
 import repoRoutes from "./routes/v1/repo.routes";
+import authRoutes from "./routes/v1/auth.routes";
 
 
 
@@ -23,6 +24,8 @@ app.use(helmet({
 app.use(cors({
   origin: "*", // restrict later
 }));
+
+app.use("/api/v1/auth", authRoutes);
 
 app.use(express.json({ limit: "1mb" }));
 

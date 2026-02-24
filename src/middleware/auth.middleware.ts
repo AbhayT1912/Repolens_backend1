@@ -1,5 +1,7 @@
 import { verifyToken } from "@clerk/backend";
 import { Request, Response, NextFunction } from "express";
+import { ENV } from "../config/env";
+import { ensureUserProvisioned } from "../services/userProvision.service";
 
 export const requireAuth = async (
   req: any,
@@ -16,8 +18,23 @@ export const requireAuth = async (
     const token = authHeader.split(" ")[1];
 
     const payload = await verifyToken(token, {
-      secretKey: process.env.CLERK_SECRET_KEY!,
+      secretKey: ENV.CLERK_SECRET_KEY,
     });
+
+    if (!payload.sub) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    try {
+      await ensureUserProvisioned(payload.sub);
+    } catch (error: any) {
+      const status = typeof error?.status === "number" ? error.status : null;
+      if (status === 401 || status === 404) {
+        return res.status(401).json({ message: "Unauthorized user profile" });
+      }
+
+      return res.status(500).json({ message: "Failed to sync authenticated user" });
+    }
 
     req.auth = {
       userId: payload.sub,
