@@ -1,6 +1,7 @@
 import { createClerkClient } from "@clerk/backend";
 import { ENV } from "../config/env";
 import { UserModel } from "../models/user.model";
+import { CREDITS_LIMIT } from "../config/creditPolicy.config";
 
 const clerkClient = createClerkClient({
   secretKey: ENV.CLERK_SECRET_KEY,
@@ -37,7 +38,7 @@ export const upsertUser = async ({ clerkUserId, email }: UserUpsertInput) => {
     {
       $set: { email },
       $setOnInsert: {
-        credits: 100,
+        credits: CREDITS_LIMIT,
         last_credit_reset: new Date(),
       },
     },

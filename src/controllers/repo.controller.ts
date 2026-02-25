@@ -10,6 +10,7 @@ import { UserModel } from "../models/user.model";
 import { deductUserCredits } from "../middleware/credit.middleware";
 import { CREDIT_COSTS } from "../config/creditCost.config";
 import { CreditChargeModel } from "../models/creditCharge.model";
+import { CREDITS_LIMIT } from "../config/creditPolicy.config";
 
 export const analyzeRepository = asyncHandler(
   async (req: Request, res: Response) => {
@@ -177,7 +178,7 @@ export const getDashboardSummary = asyncHandler(
         ai_tokens_used: aiTokensUsed,
         credits_left: creditsLeft,
         credits_used: totalUsedCredits,
-        credits_limit: 100,
+        credits_limit: CREDITS_LIMIT,
       },
     });
   }

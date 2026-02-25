@@ -1,7 +1,6 @@
 import { UserModel } from "../models/user.model";
 import { CreditChargeModel } from "../models/creditCharge.model";
-
-const MAX_DAILY_CREDITS = 500;
+import { CREDITS_LIMIT } from "../config/creditPolicy.config";
 
 const resetCreditsIfNeeded = async (userId: string) => {
   const user = await UserModel.findOne({ clerk_user_id: userId }).lean();
@@ -19,7 +18,7 @@ const resetCreditsIfNeeded = async (userId: string) => {
       { clerk_user_id: userId },
       {
         $set: {
-          credits: MAX_DAILY_CREDITS,
+          credits: CREDITS_LIMIT,
           last_credit_reset: now,
         },
       }

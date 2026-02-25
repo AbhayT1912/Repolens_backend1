@@ -16,6 +16,9 @@ import { deductCreditsOncePerRepoFeature } from "../../middleware/credit.middlew
 import { CREDIT_COSTS } from "../../config/creditCost.config";
 import { getUserRepositories } from "../../controllers/repo.controller";
 import { getDashboardSummary } from "../../controllers/repo.controller";
+import { getMe, patchMe } from "../../controllers/user.controller";
+import { validate } from "../../middleware/validate.middleware";
+import { patchMeBodySchema } from "../../validators/user.validator";
 
 const router = Router();
 
@@ -25,6 +28,8 @@ router.post(
   requireAuth,
   analyzeRepository,
 );
+router.get("/me", requireAuth, getMe);
+router.patch("/me", requireAuth, validate({ body: patchMeBodySchema }), patchMe);
 
 router.get("/:repoId/graph", requireAuth, requireRepoOwnership,deductCreditsOncePerRepoFeature("graph", CREDIT_COSTS.GRAPH), getCallGraph);
 router.get("/:repoId/file-graph", requireAuth, requireRepoOwnership, deductCreditsOncePerRepoFeature("file-graph", CREDIT_COSTS.FILE_GRAPH_ANALYSIS), getFileGraph);
