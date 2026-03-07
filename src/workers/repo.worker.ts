@@ -1,13 +1,7 @@
 import { Worker } from "bullmq";
-import IORedis from "ioredis";
 import { processRepository } from "../services/repo.service";
 import { logger } from "../config/logger";
-
-const connection = new IORedis({
-  host: "127.0.0.1",
-  port: 6379,
-  maxRetriesPerRequest: null, // 🔥 REQUIRED FOR BULLMQ
-});
+import { getRedisConnection } from "../config/redis";
 
 export const repoWorker = new Worker(
   "repo-processing",
@@ -21,13 +15,12 @@ export const repoWorker = new Worker(
 
     await processRepository(repoUrl, repoId);
   },
-  { connection }
+  { connection: getRedisConnection() }
 );
 
 repoWorker.on("ready", () => {
   logger.info("Worker connected to Redis");
 });
-
 
 repoWorker.on("completed", (job) => {
   logger.info("Job completed", {

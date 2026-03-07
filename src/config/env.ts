@@ -10,6 +10,7 @@ const envSchema = z.object({
   CLONE_TIMEOUT: z.string(),
   TEMP_DIR_PATH: z.string(),
   MONGO_URI: z.string(),
+  REDIS_URL: z.string().default("redis://127.0.0.1:6379"),
   CLERK_SECRET_KEY: z.string(),
   CLERK_WEBHOOK_SECRET: z.string(),
 });
@@ -28,6 +29,7 @@ export const ENV = {
   CLONE_TIMEOUT: Number(parsed.data.CLONE_TIMEOUT),
   TEMP_DIR_PATH: parsed.data.TEMP_DIR_PATH,
   MONGO_URI: parsed.data.MONGO_URI,
+  REDIS_URL: parsed.data.REDIS_URL,
   CLERK_SECRET_KEY: parsed.data.CLERK_SECRET_KEY,
   CLERK_WEBHOOK_SECRET: parsed.data.CLERK_WEBHOOK_SECRET,
 };
