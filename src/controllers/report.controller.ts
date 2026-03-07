@@ -5,6 +5,7 @@ import { generateExecutivePDF } from "../services/pdf.service";
 import { UsageModel } from "../models/usage.model";
 import mongoose from "mongoose";
 import { detectRegression, calculateVelocity, calculateVolatilityScore, predictDegradation , calculateStabilityIndex} from "../services/trend.service";
+import { RepoModel } from "../models/repo.model";
 
 /* =====================================================
    TYPE FOR HISTORY SNAPSHOT (Fixes Red Underlines)
@@ -32,13 +33,31 @@ interface ReportHistorySnapshot {
 
 export const downloadExecutivePDF = async (req: any, res: any, next: any) => {
   try {
+    const { repoId } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(repoId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid repository ID",
+      });
+    }
+
+    const reportExists = await RepoReportModel.exists({
+      repo_id: new mongoose.Types.ObjectId(repoId),
+    });
+    if (!reportExists) {
+      return res.status(404).json({
+        success: false,
+        message: "Report not generated yet",
+      });
+    }
+
     await UsageModel.updateOne(
       { user_id: req.auth.userId },
-      { $inc: { download_count: 1 } },
+      { $inc: { pdf_downloads: 1 } },
       { upsert: true }
     );
 
-    await generateExecutivePDF(req.params.repoId, res);
+    await generateExecutivePDF(repoId, res);
   } catch (error) {
     next(error);
   }
@@ -50,12 +69,22 @@ export const downloadExecutivePDF = async (req: any, res: any, next: any) => {
 
 export const getRepoReport = asyncHandler(async (req: Request, res: Response) => {
   const { repoId } = req.params;
+  if (!mongoose.Types.ObjectId.isValid(repoId)) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid repository ID",
+    });
+  }
 
-  const report = await RepoReportModel.findOne({ repo_id: repoId });
+  const repoObjectId = new mongoose.Types.ObjectId(repoId);
+  const report = await RepoReportModel.findOne({ repo_id: repoObjectId });
 
   if (!report) {
-    return res.status(404).json({
-      success: false,
+    const repo = await RepoModel.findById(repoId).select("status").lean();
+    return res.status(200).json({
+      success: true,
+      data: null,
+      status: repo?.status ?? "PROCESSING",
       message: "Report not generated yet",
     });
   }

@@ -116,6 +116,7 @@ export const generateRepoReport = async (repoId: string) => {
     repoId,
     "Provide a high level architecture overview of this repository.",
   );
+  const architectureOverviewText = aiResponse?.answer || "";
 
   // 🔥 NEW — INVESTOR SUMMARY
   const investorSummary = buildInvestorSummary({
@@ -191,8 +192,8 @@ if (previousReport) {
 
   const report = await RepoReportModel.create({
     repo_id: repoId,
-    overview: aiResponse,
-    architecture_summary: aiResponse,
+    overview: architectureOverviewText,
+    architecture_summary: architectureOverviewText,
     entry_points: entryPoints.map((e) => e.name),
     dead_functions_count: deadFunctions,
     total_files: repo.file_count,

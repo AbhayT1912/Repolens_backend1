@@ -22,7 +22,7 @@ export interface RepoDocument extends Document {
 const RepoSchema = new Schema<RepoDocument>(
   {
     owner_id: { type: String, required: true },
-    repo_url: { type: String, required: true, unique: true, index: true },
+    repo_url: { type: String, required: true, index: true },
 
     status: {
       type: String,
@@ -45,6 +45,12 @@ const RepoSchema = new Schema<RepoDocument>(
       updatedAt: "updated_at",
     },
   }
+);
+
+// Allow same repo URL across different users; prevent duplicates only per user.
+RepoSchema.index(
+  { owner_id: 1, repo_url: 1 },
+  { unique: true, name: "owner_repo_unique" }
 );
 
 export const RepoModel = mongoose.model<RepoDocument>(

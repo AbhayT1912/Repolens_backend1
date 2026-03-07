@@ -10,7 +10,7 @@ export const requireRepoOwnership = async (req: any, res: any, next: any) => {
     return res.status(404).json({ message: "Repository not found" });
   }
 
-  if (repo.owner_id !== userId) {
+  if (String(repo.owner_id) !== String(userId)) {
     return res.status(403).json({ message: "Forbidden" });
   }
 
