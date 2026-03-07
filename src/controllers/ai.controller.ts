@@ -6,6 +6,7 @@ import { AppError } from "../utils/AppError";
 import { sanitizeQuestion } from "../utils/question.util";
 import { askAIService } from "../services/ai.service";
 import { UsageModel } from "../models/usage.model";
+import { CREDIT_COSTS } from "../config/creditCost.config";
 
 const extractTotalTokens = (usage: any): number => {
   const candidates = [
@@ -63,15 +64,21 @@ export const askQuestion = asyncHandler(
     const aiResponse = await askAIService(repo_id, sanitizedQuestion);
     const answer = aiResponse.answer;
     const usage = aiResponse.usage;
-    const tokenIncrement = extractTotalTokens(usage);
+    const modelTokenIncrement = extractTotalTokens(usage);
+    const aiCostIncrement = CREDIT_COSTS.ASK_AI;
 
-    if (tokenIncrement > 0) {
-      await UsageModel.updateOne(
-        { user_id: req.auth.userId },
-        { $inc: { ai_tokens_used: tokenIncrement } },
-        { upsert: true }
-      );
-    }
+    await UsageModel.updateOne(
+      { user_id: req.auth.userId },
+      {
+        $inc: {
+          ai_tokens_used: aiCostIncrement,
+          ai_queries_count: 1,
+          ai_model_tokens_used: modelTokenIncrement,
+        },
+        $set: { ai_usage_metric_version: 2 },
+      },
+      { upsert: true }
+    );
 
     return res.status(200).json({
       success: true,
@@ -80,7 +87,7 @@ export const askQuestion = asyncHandler(
         question: sanitizedQuestion,
         answer,
         usage: usage || {
-          totalTokens: tokenIncrement,
+          totalTokens: modelTokenIncrement,
           promptTokens: 0,
           completionTokens: 0,
         },

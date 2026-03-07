@@ -189,6 +189,15 @@ if (previousReport) {
   };
 }
 
+  /* ================================
+     EXTRACT MODULES (Dynamic)
+  ================================= */
+  
+  const allFunctions = await FunctionModel.find({
+    repo_id: repoObjectId,
+  }).lean();
+
+  const modules = extractModulesFromFiles(files, allFunctions);
 
   const report = await RepoReportModel.create({
     repo_id: repoId,
@@ -206,6 +215,7 @@ if (previousReport) {
     investor_summary: investorSummary,
     risk_exposure: riskExposure,
     maturity: maturity,
+    modules: modules,
     version,
     score_delta: scoreDelta,
     previous_version_id: previousReport?._id ?? null,
@@ -256,6 +266,77 @@ export async function calculateComplexityMetrics(repoId: string) {
     max_complexity: max,
     high_complexity_functions: high,
   };
+}
+
+/* =====================================================
+   MODULE EXTRACTION ENGINE
+===================================================== */
+
+function extractModulesFromFiles(
+  files: any[],
+  functions: any[]
+): Array<{
+  name: string;
+  files_count: number;
+  functions_count: number;
+  complexity: 'low' | 'medium' | 'high';
+  type?: string;
+}> {
+  // Group files by top-level directory (e.g., src/core, src/components)
+  const moduleMap = new Map<string, { files: Set<string>; functions: any[] }>();
+
+  for (const file of files) {
+    const path = file.path.replace(/\\/g, "/").toLowerCase();
+    const pathParts = path.split("/");
+
+    // Extract module name (e.g., "src/core" from "src/core/index.ts")
+    let moduleName = pathParts.length > 1 ? `${pathParts[0]}/${pathParts[1]}` : pathParts[0];
+
+    if (!moduleMap.has(moduleName)) {
+      moduleMap.set(moduleName, { files: new Set(), functions: [] });
+    }
+
+    moduleMap.get(moduleName)!.files.add(file._id.toString());
+  }
+
+  for (const fn of functions) {
+    const fileId = fn.file_id?.toString();
+    const file = files.find((f) => f._id.toString() === fileId);
+
+    if (!file) continue;
+
+    const path = file.path.replace(/\\/g, "/").toLowerCase();
+    const pathParts = path.split("/");
+    const moduleName = pathParts.length > 1 ? `${pathParts[0]}/${pathParts[1]}` : pathParts[0];
+
+    if (moduleMap.has(moduleName)) {
+      moduleMap.get(moduleName)!.functions.push(fn);
+    }
+  }
+
+  // Convert to sorted array
+  const modules = Array.from(moduleMap.entries())
+    .map(([name, data]) => {
+      const avgComplexity = data.functions.length
+        ? data.functions.reduce((sum: number, f: any) => sum + (f.complexity ?? 1), 0) /
+          data.functions.length
+        : 0;
+
+      const complexityLevel: 'low' | 'medium' | 'high' =
+        avgComplexity >= 10 ? 'high' : avgComplexity >= 5 ? 'medium' : 'low';
+
+      return {
+        name,
+        files_count: data.files.size,
+        functions_count: data.functions.length,
+        complexity: complexityLevel,
+        type: 'module',
+      };
+    })
+    .sort((a, b) => b.functions_count - a.functions_count)
+    .slice(0, 10); // Top 10 modules
+
+  return modules;
 }
 
 /* =====================================================

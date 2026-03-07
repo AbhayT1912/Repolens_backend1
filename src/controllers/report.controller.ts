@@ -6,6 +6,8 @@ import { UsageModel } from "../models/usage.model";
 import mongoose from "mongoose";
 import { detectRegression, calculateVelocity, calculateVolatilityScore, predictDegradation , calculateStabilityIndex} from "../services/trend.service";
 import { RepoModel } from "../models/repo.model";
+import { ImportModel } from "../models/import.model";
+import { FunctionModel } from "../models/function.model";
 
 /* =====================================================
    TYPE FOR HISTORY SNAPSHOT (Fixes Red Underlines)
@@ -89,9 +91,49 @@ export const getRepoReport = asyncHandler(async (req: Request, res: Response) =>
     });
   }
 
+  const reportData: any =
+    typeof (report as any).toObject === "function"
+      ? (report as any).toObject()
+      : report;
+
+  if (typeof reportData.total_dependencies !== "number") {
+    const densityDependencies = Array.isArray(reportData?.dependency_density?.file_density)
+      ? reportData.dependency_density.file_density.reduce(
+          (sum: number, file: any) =>
+            sum + Number(file?.outgoing_dependencies ?? 0),
+          0
+        )
+      : 0;
+
+    reportData.total_dependencies =
+      densityDependencies > 0
+        ? densityDependencies
+        : await ImportModel.countDocuments({ repo_id: repoObjectId });
+  }
+
+  if (typeof reportData.total_lines_of_code !== "number") {
+    const locAgg = await FunctionModel.aggregate([
+      { $match: { repo_id: repoObjectId } },
+      {
+        $group: {
+          _id: "$file_id",
+          max_end_line: { $max: "$end_line" },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          total_lines_of_code: { $sum: "$max_end_line" },
+        },
+      },
+    ]);
+
+    reportData.total_lines_of_code = Number(locAgg?.[0]?.total_lines_of_code ?? 0);
+  }
+
   res.status(200).json({
     success: true,
-    data: report,
+    data: reportData,
   });
 });
 

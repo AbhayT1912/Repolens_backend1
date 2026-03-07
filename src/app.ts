@@ -8,10 +8,17 @@ import { ENV } from "./config/env";
 import { logger } from "./config/logger";
 import repoRoutes from "./routes/v1/repo.routes";
 import authRoutes from "./routes/v1/auth.routes";
+import { handleGitHubWebhook } from "./controllers/pr.controller";
 
 
 
 const app = express();
+
+/* ========================
+   TRUST PROXY (for X-Forwarded-For headers from load balancers)
+   IMPORTANT: Must be set BEFORE any middleware checks X-Forwarded-For
+======================== */
+app.set('trust proxy', 1);
 
 /* ========================
    SECURITY MIDDLEWARE
@@ -25,7 +32,23 @@ app.use(cors({
   origin: "*", // restrict later
 }));
 
-app.use("/api/v1/auth", authRoutes);
+/* ========================
+   REGISTER WEBHOOK WITH RAW BODY PARSING
+   (Must be BEFORE express.json() and rate limiter)
+======================== */
+
+// Use express.raw for webhook to capture raw body
+app.post("/api/v1/webhook/github", express.raw({ type: 'application/json' }), (req: any, res, next) => {
+  // Store the raw body as string for signature verification
+  req.rawBody = req.body.toString();
+  // Parse JSON separately
+  try {
+    req.body = JSON.parse(req.rawBody);
+  } catch (e) {
+    return res.status(400).json({ error: 'Invalid JSON' });
+  }
+  next();
+}, handleGitHubWebhook);
 
 app.use(express.json({ limit: "1mb" }));
 
@@ -39,6 +62,8 @@ const limiter = rateLimit({
 });
 
 app.use(limiter);
+
+app.use("/api/v1/auth", authRoutes);
 
 /* ========================
    REQUEST LOGGING

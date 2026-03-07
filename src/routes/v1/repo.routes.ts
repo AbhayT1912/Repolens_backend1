@@ -9,6 +9,7 @@ import { downloadExecutivePDF, getRepoHistory, getRepoReport } from "../../contr
 import { getImpactAnalysis } from "../../controllers/impactAnalysis.controller";
 import { getRiskRanking } from "../../controllers/impactAnalysis.controller";
 import { getLayerAnalysis } from "../../controllers/layerDetection.controller";
+import { handleGitHubWebhook, getPRAnalysis, getReposPRAnalyses, getPRAnalysisSummary } from "../../controllers/pr.controller";
 import { requireAuth } from "../../middleware/auth.middleware";
 import { requireRepoOwnership } from "../../middleware/ownership.middleware";
 import { deductCredits } from "../../middleware/credit.middleware";
@@ -45,5 +46,17 @@ router.get("/my-repos", requireAuth, getUserRepositories);
 router.get("/myrepo", requireAuth, getUserRepositories);
 router.get("/dashboard-summary", requireAuth, getDashboardSummary);
 
+/* =====================================================
+   PR ANALYSIS ROUTES
+===================================================== */
+
+// Get all PR analyses for a repository
+router.get("/:repoId/pr-analyses", requireAuth, requireRepoOwnership, getReposPRAnalyses);
+
+// Get summary of PR analyses
+router.get("/:repoId/pr-analyses/summary", requireAuth, requireRepoOwnership, getPRAnalysisSummary);
+
+// Get specific PR analysis
+router.get("/:repoId/pr/:prNumber", requireAuth, requireRepoOwnership, getPRAnalysis);
 
 export default router;

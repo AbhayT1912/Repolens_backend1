@@ -1,4 +1,5 @@
 import axios from "axios";
+import { logger } from "../config/logger";
 
 const RAG_BASE_URL = process.env.RAG_SERVICE_URL || "http://localhost:8000";
 
@@ -12,9 +13,12 @@ export const ingestRepoToRAG = async (
       repoId,
     });
 
-    console.log("RAG ingestion triggered for repo:", repoId);
+    logger.info("RAG ingestion triggered", { repo_id: repoId });
   } catch (error: any) {
-    console.error("RAG ingestion failed:", error.message);
+    logger.warn("RAG ingestion request failed", {
+      repo_id: repoId,
+      error: error?.message,
+    });
     throw error;
   }
 };

@@ -173,7 +173,8 @@ export const getDashboardSummary = asyncHandler(
     ]);
 
     const creditsLeft = user?.credits ?? 0;
-    const aiTokensUsed = usage?.ai_tokens_used ?? 0;
+    const aiUsageMetricVersion = Number(usage?.ai_usage_metric_version ?? 1);
+    const aiTokensUsed = aiUsageMetricVersion >= 2 ? usage?.ai_tokens_used ?? 0 : 0;
     const totalUsedCredits = Math.max(0, CREDITS_LIMIT - creditsLeft);
     const totalSavedAnalyses = savedAnalyses[0]?.count ?? 0;
 
@@ -183,6 +184,8 @@ export const getDashboardSummary = asyncHandler(
         repos_analyzed: repoCount,
         analyses_saved: totalSavedAnalyses,
         ai_tokens_used: aiTokensUsed,
+        ai_model_tokens_used: usage?.ai_model_tokens_used ?? 0,
+        ai_queries_count: usage?.ai_queries_count ?? 0,
         credits_left: creditsLeft,
         credits_used: totalUsedCredits,
         credits_limit: CREDITS_LIMIT,

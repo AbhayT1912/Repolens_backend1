@@ -1,11 +1,11 @@
 import mongoose, { Document, Schema } from "mongoose";
-import { fa } from "zod/locales";
 
 export interface RepoReportDocument extends Document {
   repo_id: mongoose.Types.ObjectId;
 
   overview: string;
   architecture_summary: string;
+  architecture_health_score: number;
 
   entry_points: string[];
   dead_functions_count: number;
@@ -15,9 +15,19 @@ export interface RepoReportDocument extends Document {
   complexity_metrics: any;
   layer_analysis: any;
   dependency_density: any;
+  investor_summary: any;
+  risk_exposure: any;
+  maturity: any;
+  modules?: Array<{
+    name: string;
+    files_count: number;
+    functions_count: number;
+    complexity: 'low' | 'medium' | 'high';
+    type?: string;
+  }>;
 
   version: number;
-  previous_version_id: mongoose.Types.ObjectId;
+  previous_version_id: mongoose.Types.ObjectId | null;
 
   score_delta: {
     architecture: number;
@@ -40,6 +50,7 @@ const RepoReportSchema = new Schema<RepoReportDocument>(
 
     overview: { type: String },
     architecture_summary: { type: String },
+    architecture_health_score: { type: Number, default: 0 },
 
     entry_points: [{ type: String }],
     dead_functions_count: { type: Number },
@@ -50,6 +61,16 @@ const RepoReportSchema = new Schema<RepoReportDocument>(
     complexity_metrics: { type: Schema.Types.Mixed },
     layer_analysis: { type: Schema.Types.Mixed },
     dependency_density: { type: Schema.Types.Mixed },
+    investor_summary: { type: Schema.Types.Mixed },
+    risk_exposure: { type: Schema.Types.Mixed },
+    maturity: { type: Schema.Types.Mixed },
+    modules: [{
+      name: { type: String },
+      files_count: { type: Number },
+      functions_count: { type: Number },
+      complexity: { type: String, enum: ['low', 'medium', 'high'] },
+      type: { type: String },
+    }],
 
     generated_at: {
       type: Date,

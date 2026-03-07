@@ -6,7 +6,6 @@ import { getRepoPath } from "../utils/repoPath.util";
 import { scanRepository } from "./scanner.service";
 import { parseRepository } from "./parser.service";
 import { logger } from "../config/logger";
-import { ingestToRAG } from "./ai.service";
 import { ingestRepoToRAG } from "./rag.service";
 import { generateRepoReport } from "./report.service";
 
@@ -63,8 +62,16 @@ export const processRepository = async (repoUrl: string, repoId: string) => {
       completed_at: new Date(),
     });
 
-    // 🔥 Trigger RAG ingestion after repo is ready
-    await ingestRepoToRAG(repoPath, repoId);
+    // Trigger RAG ingestion after repo is ready.
+    // RAG is auxiliary and should not fail the core analysis pipeline.
+    try {
+      await ingestRepoToRAG(repoPath, repoId);
+    } catch (error: any) {
+      logger.warn("RAG ingestion failed after repo became ready", {
+        repo_id: repoId,
+        error: error?.message,
+      });
+    }
 
     logger.info("Repository ready", { repo_id: repoId });
   } catch (error: any) {
