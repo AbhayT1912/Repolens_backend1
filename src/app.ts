@@ -37,17 +37,34 @@ app.use(cors({
    (Must be BEFORE express.json() and rate limiter)
 ======================== */
 
-// Use express.raw for webhook to capture raw body
-app.post("/api/v1/webhook/github", express.raw({ type: 'application/json' }), (req: any, res, next) => {
-  // Store the raw body as string for signature verification
-  req.rawBody = req.body.toString();
-  // Parse JSON separately
+// Use express.raw for webhook to capture raw body exactly as signed by GitHub.
+app.post("/api/v1/webhook/github", express.raw({ type: "*/*" }), (req: any, res, next) => {
+  const rawBuffer = req.body;
+  req.rawBody = Buffer.isBuffer(rawBuffer) ? rawBuffer.toString("utf8") : "";
+
   try {
-    req.body = JSON.parse(req.rawBody);
+    const contentType = String(req.headers["content-type"] || "").toLowerCase();
+
+    if (contentType.includes("application/json")) {
+      req.body = JSON.parse(req.rawBody || "{}");
+      return next();
+    }
+
+    if (contentType.includes("application/x-www-form-urlencoded")) {
+      const payload = new URLSearchParams(req.rawBody).get("payload");
+      if (!payload) {
+        return res.status(400).json({ error: "Missing payload field in form webhook body" });
+      }
+      req.body = JSON.parse(payload);
+      return next();
+    }
+
+    // Fallback: attempt JSON parsing for unknown content-types.
+    req.body = JSON.parse(req.rawBody || "{}");
+    return next();
   } catch (e) {
-    return res.status(400).json({ error: 'Invalid JSON' });
+    return res.status(400).json({ error: "Invalid webhook payload" });
   }
-  next();
 }, handleGitHubWebhook);
 
 app.use(express.json({ limit: "1mb" }));

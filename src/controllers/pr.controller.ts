@@ -6,11 +6,14 @@ import { RepoModel } from '../models/repo.model';
 import mongoose from 'mongoose';
 import crypto from 'crypto';
 import { logger } from '../config/logger';
+import { normalizeRepoUrl } from '../utils/repoUrl.util';
 
 // Verify GitHub webhook signature
 function verifyGitHubSignature(req: any): boolean {
-  const signature = req.headers['x-hub-signature-256'];
-  if (!signature) {
+  const signatureHeader = req.headers['x-hub-signature-256'];
+  const signature = Array.isArray(signatureHeader) ? signatureHeader[0] : signatureHeader;
+
+  if (!signature || typeof signature !== 'string') {
     logger.warn('Webhook signature missing');
     return false;
   }
@@ -30,22 +33,27 @@ function verifyGitHubSignature(req: any): boolean {
 
   // Generate expected signature
   const hash = crypto.createHmac('sha256', secret).update(payload).digest('hex');
-  const expectedSignature = `sha256=${hash}`;
 
-  // Extract just the hash part from the incoming signature (remove "sha256=" prefix if present)
-  const incomingHash = signature.startsWith('sha256=') 
-    ? signature.substring(7) 
-    : signature;
+  // Extract just the hash part from the incoming signature (remove "sha256=" prefix if present).
+  const incomingHash = signature.trim().toLowerCase().replace(/^sha256=/i, '');
 
   logger.info(`Signature received (hash only): ${incomingHash}`);
   logger.info(`Signature expected (hash only): ${hash}`);
   logger.info(`Payload length: ${payload.length}`);
 
   try {
+    const incomingBuffer = Buffer.from(incomingHash, 'hex');
+    const expectedBuffer = Buffer.from(hash, 'hex');
+
+    if (incomingBuffer.length === 0 || incomingBuffer.length !== expectedBuffer.length) {
+      logger.warn('Webhook signature length mismatch');
+      return false;
+    }
+
     // Compare just the hash parts (same length)
     const isValid = crypto.timingSafeEqual(
-      Buffer.from(incomingHash),
-      Buffer.from(hash)
+      incomingBuffer,
+      expectedBuffer
     );
     return isValid;
   } catch (error) {
@@ -70,31 +78,46 @@ export const handleGitHubWebhook = asyncHandler(async (req: Request, res: Respon
 
   const { action, pull_request, repository } = req.body;
 
-  // Only analyze on PR open or synchronize (new commits)
-  if (!['opened', 'synchronize'].includes(action)) {
-    return res.status(200).json({ message: `Action '${action}' ignored - only processing opened/synchronize` });
+  // Only analyze on PR-related changes where a fresh review is useful.
+  if (!['opened', 'synchronize', 'reopened', 'ready_for_review'].includes(action)) {
+    return res.status(200).json({ message: `Action '${action}' ignored - only processing opened/synchronize/reopened/ready_for_review` });
   }
 
   try {
     const { owner, name: repoName } = repository;
-    const { number: prNumber, head, title, html_url } = pull_request;
+    const { number: prNumber, title, html_url } = pull_request;
 
     logger.info(`Processing PR #${prNumber} for ${owner.login}/${repoName}`);
 
-    // Find repo in database (case-insensitive search)
-    const repo = await RepoModel.findOne({
-      repo_url: new RegExp(`^https://github\\.com/${owner.login}/${repoName}$`, 'i'),
+    const normalizedWebhookRepoUrl = normalizeRepoUrl(
+      repository?.html_url || `https://github.com/${owner.login}/${repoName}`
+    );
+
+    // Same GitHub repo URL may exist for multiple users in this DB.
+    // Keep all of them in sync for PR analysis so each owner sees data in their dashboard.
+    let matchedRepos = await RepoModel.find({
+      repo_url: normalizedWebhookRepoUrl,
     }).sort({ updated_at: -1 });
 
-    if (!repo) {
+    if (matchedRepos.length === 0) {
+      // Backward compatibility fallback for historical records with non-normalized URL casing.
+      matchedRepos = await RepoModel.find({
+        repo_url: new RegExp(`^https://github\\.com/${owner.login}/${repoName}$`, 'i'),
+      }).sort({ updated_at: -1 });
+    }
+
+    logger.info(`Matched ${matchedRepos.length} repository record(s) for webhook URL ${normalizedWebhookRepoUrl}`);
+
+    const primaryRepo = matchedRepos[0];
+
+    if (!primaryRepo) {
       logger.warn(`Repository not found: ${owner.login}/${repoName}`);
       return res.status(404).json({ error: 'Repository not found in RepoLink' });
     }
 
     const githubToken = process.env.GITHUB_TOKEN || '';
     if (!githubToken) {
-      logger.error('GITHUB_TOKEN not configured');
-      return res.status(500).json({ error: 'GitHub token not configured' });
+      logger.warn('GITHUB_TOKEN not configured; proceeding with unauthenticated GitHub API access where possible');
     }
 
     // Fetch PR diff
@@ -171,7 +194,7 @@ export const handleGitHubWebhook = asyncHandler(async (req: Request, res: Respon
     // Architecture violations
     try {
       const archIssues = await PRAnalysisService.detectArchitectureViolations(
-        repo._id.toString(),
+        primaryRepo._id.toString(),
         files.map(f => f.filename)
       );
       allIssues.push(...archIssues);
@@ -193,7 +216,7 @@ export const handleGitHubWebhook = asyncHandler(async (req: Request, res: Respon
     let aiReview = 'AI review unavailable for this run.';
     try {
       aiReview = await PRAnalysisService.generateAIReview(
-        repo._id.toString(),
+        primaryRepo._id.toString(),
         files,
         allIssues,
         riskScore,
@@ -239,45 +262,52 @@ export const handleGitHubWebhook = asyncHandler(async (req: Request, res: Respon
       low: allIssues.filter(i => i.severity === 'LOW').length,
     };
 
-    // Save or update analysis (opened + synchronize should not fail due duplicates)
-    const analysis = await PRAnalysisModel.findOneAndUpdate(
-      {
-        repo_id: repo._id,
-        pr_number: prNumber,
-      },
-      {
-        $set: {
-          pr_title: title,
-          pr_url: html_url,
-          github_pr_id: pull_request.id,
-          files_changed: files.length,
-          files_analyzed: files.map(f => f.filename),
-          issues: allIssues,
-          file_impacts: fileImpacts,
-          issue_summary: issueSummary,
-          complexity_delta: totalComplexityDelta,
-          architecture_violations_count: architectureViolationsCount,
-          security_issues: securityIssuesCount,
-          overall_risk_score: riskScore,
-          ai_review: aiReview,
-          criticality_reduction_fixes: criticalityReductionFixes,
-          github_comment_id: commentId || undefined,
-          github_comment_body: githubCommentBody || undefined,
-          analyzed_at: new Date(),
-        },
-      },
-      {
-        upsert: true,
-        new: true,
-        setDefaultsOnInsert: true,
-      }
+    // Save or update analysis for all matching repo records.
+    const upsertPayload = {
+      pr_title: title,
+      pr_url: html_url,
+      github_pr_id: pull_request.id,
+      files_changed: files.length,
+      files_analyzed: files.map(f => f.filename),
+      issues: allIssues,
+      file_impacts: fileImpacts,
+      issue_summary: issueSummary,
+      complexity_delta: totalComplexityDelta,
+      architecture_violations_count: architectureViolationsCount,
+      security_issues: securityIssuesCount,
+      overall_risk_score: riskScore,
+      ai_review: aiReview,
+      criticality_reduction_fixes: criticalityReductionFixes,
+      github_comment_id: commentId || undefined,
+      github_comment_body: githubCommentBody || undefined,
+      analyzed_at: new Date(),
+    };
+
+    const analyses = await Promise.all(
+      matchedRepos.map((matchedRepo) =>
+        PRAnalysisModel.findOneAndUpdate(
+          {
+            repo_id: matchedRepo._id,
+            pr_number: prNumber,
+          },
+          { $set: upsertPayload },
+          {
+            upsert: true,
+            new: true,
+            setDefaultsOnInsert: true,
+          }
+        )
+      )
     );
+
+    const analysis = analyses[0];
 
     logger.info(`PR analysis saved: ${analysis._id}`);
 
     res.status(200).json({
       success: true,
       message: `PR #${prNumber} analyzed successfully`,
+      repositories_updated: matchedRepos.length,
       data: analysis,
     });
   } catch (error) {

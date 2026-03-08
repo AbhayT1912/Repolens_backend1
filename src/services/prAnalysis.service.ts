@@ -274,19 +274,58 @@ export class PRAnalysisService {
     githubToken: string
   ): Promise<PRDiff[]> {
     const url = `https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}/files`;
-    
+    const baseHeaders = {
+      Accept: 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28',
+      'User-Agent': 'repolink-pr-analysis',
+    };
+
+    const token = String(githubToken || '').trim();
+
+    if (token) {
+      try {
+        const response = await axios.get(url, {
+          headers: {
+            ...baseHeaders,
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        return response.data;
+      } catch (error) {
+        if (axios.isAxiosError(error)) {
+          const status = error.response?.status;
+          const body = error.response?.data;
+          console.error('Failed to fetch PR diff with token:', status, body);
+
+          // Public repos can still be fetched without auth even if token is stale.
+          if (status !== 401 && status !== 403) {
+            throw new Error(`GitHub API error while fetching PR diff (status ${status ?? 'unknown'})`);
+          }
+        } else {
+          console.error('Failed to fetch PR diff with token:', error);
+          throw error;
+        }
+      }
+    }
+
     try {
       const response = await axios.get(url, {
-        headers: {
-          Authorization: `token ${githubToken}`,
-          Accept: 'application/vnd.github.v3+json',
-        },
+        headers: baseHeaders,
       });
-      
       return response.data;
     } catch (error) {
-      console.error('Failed to fetch PR diff:', error);
-      return [];
+      if (axios.isAxiosError(error)) {
+        const status = error.response?.status;
+        console.error(
+          'Failed to fetch PR diff without token:',
+          status,
+          error.response?.data
+        );
+        throw new Error(`Unable to fetch PR diff from GitHub (status ${status ?? 'unknown'})`);
+      } else {
+        console.error('Failed to fetch PR diff without token:', error);
+        throw error;
+      }
     }
   }
 

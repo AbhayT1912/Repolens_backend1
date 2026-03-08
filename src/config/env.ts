@@ -11,6 +11,8 @@ const envSchema = z.object({
   TEMP_DIR_PATH: z.string(),
   MONGO_URI: z.string(),
   REDIS_URL: z.string().default("redis://127.0.0.1:6379"),
+  REDIS_REQUIRED_MAXMEMORY_POLICY: z.string().default("noeviction"),
+  REDIS_ENFORCE_POLICY: z.enum(["true", "false"]).optional(),
   CLERK_SECRET_KEY: z.string(),
   CLERK_WEBHOOK_SECRET: z.string(),
 });
@@ -30,6 +32,12 @@ export const ENV = {
   TEMP_DIR_PATH: parsed.data.TEMP_DIR_PATH,
   MONGO_URI: parsed.data.MONGO_URI,
   REDIS_URL: parsed.data.REDIS_URL,
+  REDIS_REQUIRED_MAXMEMORY_POLICY:
+    parsed.data.REDIS_REQUIRED_MAXMEMORY_POLICY.trim().toLowerCase(),
+  REDIS_ENFORCE_POLICY:
+    parsed.data.REDIS_ENFORCE_POLICY !== undefined
+      ? parsed.data.REDIS_ENFORCE_POLICY === "true"
+      : parsed.data.NODE_ENV === "production",
   CLERK_SECRET_KEY: parsed.data.CLERK_SECRET_KEY,
   CLERK_WEBHOOK_SECRET: parsed.data.CLERK_WEBHOOK_SECRET,
 };
