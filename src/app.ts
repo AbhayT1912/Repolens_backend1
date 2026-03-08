@@ -86,6 +86,26 @@ app.get("/health", (_, res) => {
   });
 });
 
+app.get("/", (_, res) => {
+  res.status(200).json({
+    status: "OK",
+    message: "RepoLens API is running",
+    health: "/health",
+    apiBase: "/api/v1",
+  });
+});
+
+app.get("/api/v1", (_, res) => {
+  res.status(200).json({
+    status: "OK",
+    message: "RepoLens API v1",
+  });
+});
+
+app.get("/favicon.ico", (_, res) => {
+  res.status(204).end();
+});
+
 app.get("/error-test", () => {
   throw new Error("Unexpected crash");
 });
