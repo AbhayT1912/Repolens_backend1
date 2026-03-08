@@ -1,418 +1,560 @@
-📦 RepoLens Backend
+# 📦 RepoLens Backend
 
-Transform any GitHub repository into structured, queryable intelligence.
+**Turn any GitHub repository into architecture intelligence, risk signals, and AI-queryable insights.**
 
-RepoLens Backend is a modular, scalable API service that performs repository ingestion, structural parsing, dependency graph construction, and AI-powered querying using a Retrieval-Augmented Generation (RAG) pipeline.
+RepoLens Backend is a **TypeScript/Express service** that ingests source repositories, parses code structure, builds dependency and call graphs, generates engineering reports, and powers **AI-assisted repository Q&A**.
 
-Built with Node.js + Express + MongoDB + Redis, it transforms unstructured GitHub repositories into structured knowledge systems.
+---
 
-🚀 Overview
+# 1. Project Title
 
-RepoLens Backend is responsible for:
+**Name:** RepoLens Backend  
+**Tagline:** AI-powered repository analysis engine for engineering intelligence  
 
-Repository URL intake
+**What it does:**  
+Accepts a GitHub repo URL, processes code asynchronously, stores analysis in MongoDB, and exposes APIs for graphs, reports, PR risk analysis, and chat-style AI answers.
 
-Secure Git cloning
+---
 
-Recursive file traversal
+# 2. 🚀 Overview
 
-Language detection
+RepoLens Backend solves a common problem: **repositories are hard to understand quickly**, especially for:
 
-AST parsing (JS/TS)
+- Developer onboarding
+- Architecture reviews
+- PR risk assessment
+- Codebase exploration
 
-Function & import extraction
+It is built for:
 
-Dependency graph construction
+- Engineering teams
+- Tech leads and architects
+- Code reviewers
+- Dev tools / platform teams
+- Product or management stakeholders needing engineering health signals
 
-Dead code detection
+---
 
-Entry point detection
+## Key Features
 
-Cycle detection (SCC)
+- Asynchronous repository ingestion using **BullMQ + Redis queue**
+- Secure GitHub repo URL validation and shallow cloning
+- Recursive scanning with ignored directories and file limits
+- **AST-based parsing** for JS/TS/JSX/TSX via Babel
+- Function call graph and file dependency graph generation
+- Dead code detection and entry-point metadata
+- Layer and impact analysis for architectural risk
+- Versioned repo reports with trend analytics
+- **AI question answering** via external RAG service
+- GitHub PR webhook analysis with automated risk scoring
+- Clerk-based authentication and webhook-based user provisioning
+- Credit-based usage gating for feature access
 
-AI query gateway
+---
 
-Clean REST API exposure
+# 3. 🏗️ System Architecture
 
-Security & lifecycle management
+## High-Level Architecture
 
-🏗 Architecture
+1. Client sends analysis/query requests
+2. API validates authentication and credit rules
+3. Analysis jobs are pushed to a Redis queue
+4. Worker clones, scans, and parses repository
+5. Graphs and reports are generated
+6. Data is stored in MongoDB
+7. AI endpoints query external RAG service
+8. PR webhooks trigger risk analysis and GitHub comments
 
-The backend follows a modular, layered architecture:
+---
 
-Client (Frontend)
-        ↓
-API Layer (Express)
-        ↓
-Repository Ingestion Service
-        ↓
-Scanner & AST Parsing Engine
-        ↓
-Dependency Graph Builder
-        ↓
-AI Query Gateway (RAG Bridge)
-        ↓
-External RAG Service
-📂 Project Structure
-src/
- ├── app.ts
- ├── server.ts
- ├── config/
- ├── controllers/
- ├── services/
- ├── models/
- ├── routes/
- ├── middleware/
- ├── utils/
- ├── workers/
-🧠 Core Modules
-1️⃣ Repository Ingestion
+## Components
 
-Strict GitHub URL validation
+### Frontend (external)
 
-Duplicate submission protection
+Separate web application that calls this backend via:
 
-Safe shallow clone (--depth 1)
+```
+/api/v1/*
+```
 
-Clone timeout enforcement
+### Backend Services
 
-Repository size restriction
+- Express API layer
+- Queue producer (`repoQueue`)
+- Queue worker (`repoWorker`)
+- Scanner, parser, graph builder, report generator
+- PR analysis services
 
-Temporary directory management
+### Databases
 
-Cleanup on failure
+**MongoDB**
 
-Lifecycle status tracking
+Stores:
 
-Processing States
-RECEIVED
-CLONING
-SCANNING
-PARSING
-GRAPHING
-READY
-FAILED
-2️⃣ File Scanner
+- repositories
+- files
+- functions
+- imports
+- calls
+- reports
+- users
+- usage
+- PR analyses
+
+### Message Queue
 
-Recursive directory traversal
-
-Ignore:
-
-node_modules
-
-.git
-
-dist
-
-build
-
-coverage
-
-benchmarks
-
-test directories
-
-File size filtering
-
-Language detection
-
-Metadata extraction
-
-Stored in:
-
-FileModel
-
-3️⃣ AST Parsing Engine
-
-Using:
-
-@babel/parser
-
-@babel/traverse
-
-Extracts:
-
-Function declarations
-
-Arrow functions
-
-Function expressions
-
-Class methods
-
-Imports
-
-Call expressions
-
-Stored in:
-
-FunctionModel
-
-ImportModel
-
-CallModel
-
-4️⃣ Dependency Graph Builder
-Function-Level Graph
-
-Node → Function
-Edge → Call relationship
-
-Features:
-
-Entry point detection
-
-Dead function detection
-
-Depth calculation
-
-Strongly Connected Components (Tarjan)
-
-Deterministic ordering
-
-Duplicate edge prevention
-
-File-Level Graph
-
-Node → File
-Edge → Import relationship
-
-Frontend-ready JSON output.
-
-5️⃣ Structure Endpoint
-
-Returns full repository metadata:
-
-files
-functions
-imports
-
-Used for:
-
-Frontend visualization
-
-AI context building
-
-Repository introspection
-
-6️⃣ AI Query Layer
-
-RepoLens acts as a gateway to a RAG-based AI service.
-
-Flow:
-
-POST /ask
-    ↓
-Validate repo + question
-    ↓
-Ensure status = READY
-    ↓
-Forward to RAG service
-    ↓
-Return structured answer
-🔌 API Endpoints
-Analyze Repository
+**BullMQ over Redis**
+
+Handles asynchronous repository processing.
+
+### External APIs
+
+- **Clerk** → authentication + user provisioning
+- **GitHub API** → PR diffs + comments
+- **RAG Service** → `/ingest` and `/ask`
+
+---
+
+## Deployment Structure
+
+Typical setup:
+
+```
+Frontend → Vercel
+Backend → Render
+RAG Service → Render
+Database → MongoDB Atlas
+Queue → Redis
+```
+
+---
+
+## Architecture Diagram (Mermaid)
+
+```mermaid
+graph TD
+
+User --> Frontend
+Frontend --> BackendAPI
+BackendAPI --> ClerkAuth
+BackendAPI --> RedisQueue
+RedisQueue --> RepoWorker
+RepoWorker --> GitClone
+GitClone --> ScannerParser
+ScannerParser --> GraphBuilder
+GraphBuilder --> ReportGenerator
+ReportGenerator --> MongoDB
+BackendAPI --> RAGIngest
+BackendAPI --> RAGAsk
+GitHubWebhook --> BackendAPI
+BackendAPI --> GitHubAPI
+```
+
+---
+
+# 4. 🧭 Wireframes / UI Flow
+
+## UI Flow (Backend Connected)
+
+```
+Enter GitHub URL
+      ↓
+POST /api/v1/analyze
+      ↓
+Queue Job
+      ↓
+Repo Processing
+      ↓
+GET /api/v1/:repoId/report
+      ↓
+Report Page
+      ↓
+POST /api/v1/ask
+      ↓
+AI Answer
+```
+
+---
+
+## Landing Page
+
+```
++--------------------------------------+
+| RepoLens                             |
+| [ GitHub Repository URL __________ ] |
+| [ Analyze Repository ]               |
++--------------------------------------+
+```
+
+---
+
+## Repo Analysis Page
+
+```
++--------------------------------------+
+| Repo: owner/project                  |
+| Status: RECEIVED -> CLONING -> ...   |
+| Progress indicators                  |
++--------------------------------------+
+```
+
+---
+
+## Report Page
+
+```
++--------------------------------------+
+| Architecture Health: 82              |
+| Dead Functions: 14                   |
+| Layer Violations: 3                  |
+| [View Graph] [Download PDF]          |
++--------------------------------------+
+```
+
+---
+
+## Chat Interface
+
+```
++--------------------------------------+
+| Ask about this repository            |
+| [ How does auth flow work? ______ ]  |
+| [ Ask ]                              |
+| AI Answer                            |
++--------------------------------------+
+```
+
+---
+
+# 5. 🛠️ Tech Stack
+
+| Category | Technologies |
+|--------|--------|
+| Frontend | Vite + React (external client) |
+| Backend | Node.js, TypeScript, Express 5 |
+| Database | MongoDB + Mongoose |
+| Queue | BullMQ, ioredis |
+| AI | External RAG service |
+| DevOps | Render, Vercel |
+| Logging | Winston, Morgan |
+| Authentication | Clerk |
+| Parsing | Babel parser + traverse |
+| Reporting | PDFKit, chartjs-node-canvas |
+
+---
+
+# 6. 📁 Folder Structure
+
+```
+repolens-backend/
+├─ src/
+│  ├─ app.ts
+│  ├─ server.ts
+│  ├─ config/
+│  ├─ controllers/
+│  ├─ middleware/
+│  ├─ models/
+│  ├─ routes/
+│  ├─ services/
+│  ├─ workers/
+│  ├─ utils/
+│  ├─ validators/
+│  ├─ scripts/
+│  └─ types/
+├─ FORMULAS.md
+├─ package.json
+├─ tsconfig.json
+└─ README.md
+```
+
+### Folder Descriptions
+
+- **config/** → env validation, DB connection, logger, queue config
+- **controllers/** → HTTP request handlers
+- **middleware/** → auth, validation, rate limits, errors
+- **models/** → Mongoose schemas
+- **routes/** → API route declarations
+- **services/** → business logic
+- **workers/** → BullMQ job workers
+- **utils/** → helper utilities
+- **validators/** → request schema validation
+- **scripts/** → operational scripts
+- **types/** → shared TypeScript types
+
+---
+
+# 7. ⚙️ How It Works
+
+1. User submits `repo_url` to `/api/v1/analyze`
+2. Backend validates URL, auth, and credits
+3. Repository record created with status **RECEIVED**
+4. Job added to **Redis queue**
+5. Worker picks job → status **CLONING**
+6. Repo is shallow cloned
+7. Scanner processes files
+8. AST parser extracts functions/imports/calls
+9. Graph builder computes call graph
+10. Report generator calculates architecture metrics
+11. Repo status becomes **READY**
+12. Optional ingestion into **RAG service**
+13. Frontend fetches reports/graphs
+14. AI questions are forwarded to RAG `/ask`
+15. GitHub PR webhooks trigger **PR risk analysis**
+
+---
+
+# 8. 📦 Installation
+
+## Prerequisites
+
+- Node.js **18+**
+- npm
+- Git
+- MongoDB
+- Redis
+- Docker (optional)
+
+---
+
+## Clone Repository
+
+```bash
+git clone <your-repo-url>
+cd <your-repo-root>/repolens-backend
+npm install
+```
+
+---
+
+## Start Infrastructure
+
+```bash
+docker run -d --name repolens-mongo -p 27017:27017 mongo:7
+docker run -d --name repolens-redis -p 6379:6379 redis:7
+```
+
+---
+
+# 9. 🔐 Environment Variables
+
+Create `.env` file:
+
+```env
+PORT=5000
+NODE_ENV=development
+MAX_REPO_SIZE_MB=50
+CLONE_TIMEOUT=20000
+TEMP_DIR_PATH=C:\repos
+MONGO_URI=mongodb://localhost:27017/repolens
+CLERK_SECRET_KEY=your_clerk_secret_key
+CLERK_WEBHOOK_SECRET=your_clerk_webhook_secret
+RAG_SERVICE_URL=http://localhost:8000
+GITHUB_TOKEN=your_github_token
+GITHUB_WEBHOOK_SECRET=your_github_webhook_secret
+```
+
+---
+
+## Variable Reference
+
+| Variable | Purpose |
+|--------|--------|
+| PORT | HTTP server port |
+| NODE_ENV | Runtime environment |
+| MAX_REPO_SIZE_MB | Maximum repo size |
+| CLONE_TIMEOUT | Clone timeout |
+| TEMP_DIR_PATH | Local repo storage |
+| MONGO_URI | MongoDB connection |
+| CLERK_SECRET_KEY | Verify Clerk JWT |
+| CLERK_WEBHOOK_SECRET | Verify Clerk webhook |
+| RAG_SERVICE_URL | AI RAG service |
+| GITHUB_TOKEN | GitHub API token |
+| GITHUB_WEBHOOK_SECRET | Verify GitHub webhook |
+
+---
+
+# 10. ▶️ Running the Project
+
+### Development
+
+```bash
+npm run dev
+```
+
+### Production
+
+```bash
+npm run build
+npm start
+```
+
+### Utility Script
+
+```bash
+npm run migrate:credits
+```
+
+Worker is bootstrapped inside:
+
+```
+src/server.ts
+```
+
+---
+
+# 11. 📡 API Overview
+
+**Base URL**
+
+```
+/api/v1
+```
+
+---
+
+## Health
+
+| Method | Endpoint | Auth | Description |
+|------|------|------|------|
+| GET | /health | No | Health check |
+
+---
+
+## User
+
+| Method | Endpoint |
+|------|------|
+| POST | /auth/clerk/webhook |
+| GET | /me |
+| PATCH | /me |
+| GET | /dashboard-summary |
+| GET | /my-repos |
+
+---
+
+## Repository
+
+| Method | Endpoint |
+|------|------|
+| POST | /analyze |
+| GET | /:repoId/structure |
+| GET | /:repoId/graph |
+| GET | /:repoId/file-graph |
+| GET | /:repoId/report |
+| GET | /:repoId/report/pdf |
+| GET | /:repoId/history |
+| GET | /:repoId/impact/:fileId |
+| GET | /:repoId/risk-ranking |
+| GET | /:repoId/layer-analysis |
+
+---
+
+## AI
+
+| Method | Endpoint |
+|------|------|
+| POST | /ask |
+
+---
+
+## PR Analysis
+
+| Method | Endpoint |
+|------|------|
+| POST | /webhook/github |
+| GET | /:repoId/pr-analyses |
+| GET | /:repoId/pr-analyses/summary |
+| GET | /:repoId/pr/:prNumber |
+
+---
+
+## Example Request
+
+### Analyze Repo
+
+```json
 POST /api/v1/analyze
 
-Body:
-
 {
-  "repo_url": "https://github.com/user/repo"
+  "repo_url": "https://github.com/owner/repo"
 }
+```
 
-Response:
+### Ask Question
 
-{
-  "success": true,
-  "data": {
-    "repo_id": "...",
-    "status": "RECEIVED"
-  }
-}
-Get Function Graph
-GET /api/v1/:repoId/graph
-
-Returns:
-
-nodes
-edges
-node_count
-edge_count
-Get File Graph
-GET /api/v1/:repoId/file-graph
-Get Repository Structure
-GET /api/v1/:repoId/structure
-Ask AI
+```json
 POST /api/v1/ask
 
-Body:
-
 {
-  "repo_id": "...",
-  "question": "How does authentication work?"
+  "repo_id": "<repo_id>",
+  "question": "How does authentication work in this codebase?"
 }
-🔐 Security Features
+```
 
-Helmet middleware
+---
 
-Global rate limiting
+# 12. 🚢 Deployment
 
-Analyze-specific rate limiter
+### Recommended Topology
 
-Strict GitHub HTTPS validation
+```
+Frontend → Vercel
+Backend → Render
+Database → MongoDB Atlas
+Queue → Redis
+RAG → Render
+```
 
-Length limits on inputs
+---
 
-spawn() instead of exec()
+# 13. 🖼️ Screenshots
 
-Clone timeout protection
+```
+docs/screenshots/landing-page.png
+docs/screenshots/repo-analysis-page.png
+docs/screenshots/report-page.png
+docs/screenshots/chat-interface.png
+docs/screenshots/pr-analysis-view.png
+```
 
-Error sanitization
+---
 
-Centralized error handling
+# 14. 🔮 Future Improvements
 
-🗄 Database Models
+- Redis env configuration (`REDIS_URL`)
+- Separate worker service
+- Streaming AI responses
+- Support more languages (Python, Java, Go, Rust)
+- Incremental repo analysis
+- Security scanning / SBOM
+- CI integration
+- Automated testing pipeline
 
-Repository
+---
 
-File
+# 15. 🤝 Contributing
 
-Function
+1. Fork the repository
+2. Create a branch
 
-Import
+```bash
+git checkout -b feature/your-feature
+```
 
-Call
+3. Commit changes
+4. Add tests/docs if needed
+5. Open a pull request
 
-MongoDB is used for flexible document storage.
+Please follow:
 
-⚙️ Environment Variables
+- Clean TypeScript code
+- Small focused PRs
+- Clear API documentation updates
 
-Create .env file:
+---
 
-PORT=5000
-MONGO_URI=your_mongodb_uri
-REDIS_URL=your_redis_url
-RAG_SERVICE_URL=http://localhost:8000/ask
-NODE_ENV=development
-▶️ Running Locally
-1️⃣ Install Dependencies
-npm install
-2️⃣ Start Server
-npm run dev
-3️⃣ Start Worker
+# 16. 📄 License
 
-If separate worker file exists:
+MIT License (placeholder).
 
-npm run worker
-🧪 Testing Flow
-
-POST /analyze
-
-Wait until status = READY
-
-GET /graph
-
-GET /structure
-
-POST /ask
-
-📊 Performance Characteristics
-
-Graph build complexity: O(N + E)
-
-Max file count default: 5000
-
-Shallow clone improves performance
-
-Bulk database writes for efficiency
-
-🧭 Production Considerations
-
-Not included in MVP:
-
-Authentication
-
-Multi-user accounts
-
-Billing
-
-GitHub OAuth
-
-Caching layer
-
-Vector DB (handled by RAG service)
-
-CI/CD automation
-
-🧩 Future Enhancements
-
-Vector embeddings inside backend
-
-Chunked context generation
-
-Streaming AI responses
-
-Graph pagination
-
-Large repo optimization
-
-Caching graph results
-
-Role-based access control
-
-👥 Team Responsibilities
-Abhay — Core Architecture & Infrastructure
-
-Express setup
-
-Ingestion pipeline
-
-Security
-
-Lifecycle management
-
-Anand — File Scanner & AST Engine
-
-File traversal
-
-Metadata extraction
-
-Parsing
-
-Ashutosh — Dependency Graph & Data Layer
-
-Function graph
-
-File graph
-
-Graph serialization
-
-Prakhar — API & AI Integration
-
-Route wiring
-
-AI bridge
-
-Response formatting
-
-🏆 What Makes RepoLens Unique
-
-Static analysis + AI integration
-
-Graph-based code understanding
-
-Dead code detection
-
-Entry point discovery
-
-RAG-powered semantic querying
-
-Production-style backend architecture
-
-📜 License
-
-MIT License
-
-🎯 Final Note
-
-RepoLens Backend is designed not just as a project, but as a scalable foundation for a full-stack intelligent code analysis platform
+Add a **LICENSE** file with full MIT license text before publishing.
