@@ -42,6 +42,13 @@ export const analyzeRepository = asyncHandler(
       });
     }
 
+    if (!repoQueue) {
+      throw new AppError(
+        "Background processing is unavailable. Configure REDIS_URL on the server.",
+        503
+      );
+    }
+
     const creditDeduction = await deductUserCredits(userId, CREDIT_COSTS.ANALYZE);
 
     if (!creditDeduction.ok) {
