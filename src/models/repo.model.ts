@@ -12,6 +12,11 @@ export interface RepoDocument extends Document {
   file_count?: number;
   function_count?: number;
 
+  // Security fields
+  security_score?: number;
+  security_findings_count?: number;
+  critical_vulnerabilities?: number;
+
   started_at?: Date;
   completed_at?: Date;
 
@@ -35,6 +40,11 @@ const RepoSchema = new Schema<RepoDocument>(
 
     file_count: { type: Number },
     function_count: { type: Number },
+
+    // Security analysis metrics
+    security_score: { type: Number, default: 100, min: 0, max: 100 },
+    security_findings_count: { type: Number, default: 0 },
+    critical_vulnerabilities: { type: Number, default: 0 },
 
     started_at: { type: Date },
     completed_at: { type: Date },

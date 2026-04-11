@@ -7,6 +7,7 @@ import { globalErrorHandler } from "./middleware/error.middleware";
 import { ENV } from "./config/env";
 import { logger } from "./config/logger";
 import repoRoutes from "./routes/v1/repo.routes";
+import securityRoutes from "./routes/v1/security.routes";
 import authRoutes from "./routes/v1/auth.routes";
 import { handleGitHubWebhook } from "./controllers/pr.controller";
 
@@ -91,6 +92,8 @@ app.get("/error-test", () => {
 });
 
 app.use("/api/v1", repoRoutes);
+
+app.use("/api/v1/repos", securityRoutes);
 
 
 app.use((req, res) => {

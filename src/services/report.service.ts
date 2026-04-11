@@ -1,6 +1,7 @@
 import { RepoModel } from "../models/repo.model";
 import { FunctionModel } from "../models/function.model";
 import { RepoReportModel } from "../models/repoReport.model";
+import { SecurityFindingModel } from "../models/securityFinding.model";
 import { FileModel } from "../models/file.model";
 import { ImportModel } from "../models/import.model";
 import { askAIService } from "./ai.service";
@@ -199,6 +200,36 @@ if (previousReport) {
 
   const modules = extractModulesFromFiles(files, allFunctions);
 
+  // Fetch security findings
+  const securityFindings = await SecurityFindingModel.find({
+    repo_id: repoObjectId,
+  }).lean();
+
+  const securitySummary = {
+    total_findings: securityFindings.length,
+    by_type: {
+      secrets: securityFindings.filter(f => f.type === "SECRET").length,
+      sast: securityFindings.filter(f => f.type === "BAD_PRACTICE").length,
+      dependencies: securityFindings.filter(f => f.type === "CVE").length,
+      malicious: securityFindings.filter(f => f.type === "MALICIOUS_PATTERN").length,
+      licenses: securityFindings.filter(f => f.type === "LICENSE_ISSUE").length,
+    },
+    by_severity: {
+      critical: securityFindings.filter(f => f.severity === "CRITICAL").length,
+      high: securityFindings.filter(f => f.severity === "HIGH").length,
+      medium: securityFindings.filter(f => f.severity === "MEDIUM").length,
+      low: securityFindings.filter(f => f.severity === "LOW").length,
+    },
+  };
+
+  // Calculate security trust score
+  let securityTrustScore = 100;
+  const severityWeights = { CRITICAL: 15, HIGH: 10, MEDIUM: 5, LOW: 1 };
+  for (const finding of securityFindings) {
+    securityTrustScore -= severityWeights[finding.severity as keyof typeof severityWeights] || 0;
+  }
+  securityTrustScore = Math.max(0, Math.min(100, securityTrustScore));
+
   const report = await RepoReportModel.create({
     repo_id: repoId,
     overview: architectureOverviewText,
@@ -220,6 +251,11 @@ if (previousReport) {
     score_delta: scoreDelta,
     previous_version_id: previousReport?._id ?? null,
     architecture_health_score: architectureHealthScore,
+
+    // Security findings
+    security_trust_score: securityTrustScore,
+    security_findings_count: securityFindings.length,
+    security_summary: securitySummary,
   });
 
   return report;

@@ -26,6 +26,32 @@ export interface RepoReportDocument extends Document {
     type?: string;
   }>;
 
+  // Security analysis fields
+  security_trust_score?: number;
+  security_findings_count?: number;
+  security_findings?: Array<{
+    type: string;
+    severity: string;
+    title: string;
+    count: number;
+  }>;
+  security_summary?: {
+    total_findings: number;
+    by_type: {
+      secrets: number;
+      sast: number;
+      dependencies: number;
+      malicious: number;
+      licenses: number;
+    };
+    by_severity: {
+      critical: number;
+      high: number;
+      medium: number;
+      low: number;
+    };
+  };
+
   version: number;
   previous_version_id: mongoose.Types.ObjectId | null;
 
@@ -71,6 +97,32 @@ const RepoReportSchema = new Schema<RepoReportDocument>(
       complexity: { type: String, enum: ['low', 'medium', 'high'] },
       type: { type: String },
     }],
+
+    // Security analysis fields
+    security_trust_score: { type: Number, default: 100, min: 0, max: 100 },
+    security_findings_count: { type: Number, default: 0 },
+    security_findings: [{
+      type: { type: String },
+      severity: { type: String },
+      title: { type: String },
+      count: { type: Number },
+    }],
+    security_summary: {
+      total_findings: { type: Number, default: 0 },
+      by_type: {
+        secrets: { type: Number, default: 0 },
+        sast: { type: Number, default: 0 },
+        dependencies: { type: Number, default: 0 },
+        malicious: { type: Number, default: 0 },
+        licenses: { type: Number, default: 0 },
+      },
+      by_severity: {
+        critical: { type: Number, default: 0 },
+        high: { type: Number, default: 0 },
+        medium: { type: Number, default: 0 },
+        low: { type: Number, default: 0 },
+      },
+    },
 
     generated_at: {
       type: Date,

@@ -8,6 +8,7 @@ import { parseRepository } from "./parser.service";
 import { logger } from "../config/logger";
 import { ingestRepoToRAG } from "./rag.service";
 import { generateRepoReport } from "./report.service";
+import { performSecurityAnalysis } from "./security.service";
 
 
 export const processRepository = async (repoUrl: string, repoId: string) => {
@@ -53,6 +54,30 @@ export const processRepository = async (repoUrl: string, repoId: string) => {
 
     const { buildCallGraph } = await import("./graph.service");
     await buildCallGraph(repoId);
+
+    // 🔒 SECURITY ANALYSIS
+    try {
+      const { findings, trustScore, summary } = await performSecurityAnalysis(repoPath, repoId);
+      
+      const criticalCount = findings.filter(f => f.severity === "CRITICAL").length;
+      
+      await RepoModel.findByIdAndUpdate(repoId, {
+        security_score: trustScore,
+        security_findings_count: findings.length,
+        critical_vulnerabilities: criticalCount,
+      });
+      
+      logger.info("Security analysis completed", {
+        repo_id: repoId,
+        trust_score: trustScore,
+        findings: findings.length,
+      });
+    } catch (secError: any) {
+      logger.warn("Security analysis failed, continuing with report generation", {
+        repo_id: repoId,
+        error: secError?.message,
+      });
+    }
 
     await generateRepoReport(repoId);
 
