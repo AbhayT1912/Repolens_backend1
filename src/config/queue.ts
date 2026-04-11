@@ -36,18 +36,32 @@ if (ENV.REDIS_URL) {
       connectTimeout: 3000,
       retryStrategy: (times) => {
         if (times === 1) {
-          logger.warn(
-            "⚠️  Redis not available on localhost:6379. Job queue will be disabled. Repositories will be processed synchronously."
+          logger.info(
+            "⚠️  Redis not available - job queue disabled. Repositories will process synchronously."
           );
         }
         return null; // Stop retrying after first failure
       },
     });
+
+    // Suppress error logs from IORedis when not available
+    connection.on("error", (err) => {
+      if (!redisAvailable) {
+        // Silently ignore connection errors when we're in degraded mode
+        return;
+      }
+    });
+
+    connection.on("connect", () => {
+      redisAvailable = true;
+      logger.info("✅ Redis queue connection established");
+    });
+
     redisAvailable = true;
     repoQueue = new Queue("repo-processing", { connection });
     logger.info("✅ Redis queue initialized with local Redis");
   } catch (error) {
-    logger.warn("Redis queue unavailable, using synchronous processing", {
+    logger.info("Redis not available - using synchronous processing", {
       error: (error as Error).message,
     });
   }

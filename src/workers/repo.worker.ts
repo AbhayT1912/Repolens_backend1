@@ -8,39 +8,51 @@ let repoWorker: Worker | null = null;
 if (redisAvailable) {
   const { repoQueue } = require("../config/queue");
 
-  repoWorker = new Worker(
-    "repo-processing",
-    async (job) => {
-      const { repoUrl, repoId } = job.data;
+  try {
+    repoWorker = new Worker(
+      "repo-processing",
+      async (job) => {
+        const { repoUrl, repoId } = job.data;
 
-      logger.info("Worker started processing", {
-        repo_id: repoId,
-        repo_url: repoUrl,
+        logger.info("Worker started processing", {
+          repo_id: repoId,
+          repo_url: repoUrl,
+        });
+
+        await processRepository(repoUrl, repoId);
+      },
+      { connection: repoQueue?.client }
+    );
+
+    repoWorker.on("ready", () => {
+      logger.info("✅ BullMQ Worker connected to Redis");
+    });
+
+    repoWorker.on("completed", (job) => {
+      logger.info("Async job completed", {
+        jobId: job.id,
       });
-
-      await processRepository(repoUrl, repoId);
-    },
-    { connection: repoQueue?.client }
-  );
-
-  repoWorker.on("ready", () => {
-    logger.info("Worker connected to Redis");
-  });
-
-  repoWorker.on("completed", (job) => {
-    logger.info("Job completed", {
-      jobId: job.id,
     });
-  });
 
-  repoWorker.on("failed", (job, err) => {
-    logger.error("Job failed", {
-      jobId: job?.id,
-      error: err.message,
+    repoWorker.on("failed", (job, err) => {
+      logger.error("Async job failed", {
+        jobId: job?.id,
+        error: err.message,
+      });
     });
-  });
+
+    // Suppress internal Redis connection errors
+    repoWorker.on("error", (err) => {
+      logger.debug("Worker error (suppressed):", err.message);
+    });
+  } catch (error) {
+    logger.info("Failed to initialize worker");
+    repoWorker = null;
+  }
 } else {
-  logger.info("Redis not configured - async job queue disabled");
+  logger.info(
+    "⚠️  Redis not configured - async job queue disabled. Repositories will process synchronously."
+  );
 }
 
 export { repoWorker };
