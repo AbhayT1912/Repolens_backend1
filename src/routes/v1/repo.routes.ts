@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { analyzeRepository } from "../../controllers/repo.controller";
+import { analyzeRepository, getDashboardSummary, getRepositoryStatus, getUserRepositories } from "../../controllers/repo.controller";
 import { getCallGraph } from "../../controllers/graph.controller";
 import { getFileGraph } from "../../controllers/fileGraph.controller";
 import { getStructure } from "../../controllers/structure.controller";
@@ -15,8 +15,6 @@ import { requireRepoOwnership } from "../../middleware/ownership.middleware";
 import { deductCredits } from "../../middleware/credit.middleware";
 import { deductCreditsOncePerRepoFeature } from "../../middleware/credit.middleware";
 import { CREDIT_COSTS } from "../../config/creditCost.config";
-import { getUserRepositories } from "../../controllers/repo.controller";
-import { getDashboardSummary } from "../../controllers/repo.controller";
 import { getMe, patchMe } from "../../controllers/user.controller";
 import { validate } from "../../middleware/validate.middleware";
 import { patchMeBodySchema } from "../../validators/user.validator";
@@ -31,6 +29,7 @@ router.post(
 );
 router.get("/me", requireAuth, getMe);
 router.patch("/me", requireAuth, validate({ body: patchMeBodySchema }), patchMe);
+router.get("/:repoId/status", requireAuth, getRepositoryStatus);
 
 router.get("/:repoId/graph", requireAuth, requireRepoOwnership,deductCreditsOncePerRepoFeature("graph", CREDIT_COSTS.GRAPH), getCallGraph);
 router.get("/:repoId/file-graph", requireAuth, requireRepoOwnership, deductCreditsOncePerRepoFeature("file-graph", CREDIT_COSTS.FILE_GRAPH_ANALYSIS), getFileGraph);

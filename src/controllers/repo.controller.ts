@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import mongoose from "mongoose";
 import { asyncHandler } from "../utils/asyncHandler";
 import { repoQueue, redisAvailable } from "../config/queue";
 import { RepoModel } from "../models/repo.model";
@@ -162,6 +163,47 @@ export const analyzeRepository = asyncHandler(
       success: true,
       repo_id: repo._id,
       status: "RECEIVED",
+    });
+  }
+);
+
+export const getRepositoryStatus = asyncHandler(
+  async (req: any, res: Response) => {
+    const { repoId } = req.params;
+    const userId = req.auth.userId;
+
+    if (!mongoose.Types.ObjectId.isValid(repoId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid repository ID",
+      });
+    }
+
+    const repo = await RepoModel.findOne({
+      _id: repoId,
+      owner_id: userId,
+    })
+      .select("status error_message started_at completed_at updated_at repo_url")
+      .lean();
+
+    if (!repo) {
+      return res.status(404).json({
+        success: false,
+        message: "Repository not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        repo_id: repoId,
+        repo_url: repo.repo_url,
+        status: repo.status,
+        error_message: repo.error_message ?? null,
+        started_at: repo.started_at ?? null,
+        completed_at: repo.completed_at ?? null,
+        updated_at: repo.updated_at ?? null,
+      },
     });
   }
 );
