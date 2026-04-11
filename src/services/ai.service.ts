@@ -18,14 +18,14 @@ export const ingestToRAG = async (repoPath: string, repoId: string) => {
   await axios.post(`${RAG_BASE_URL}/ingest`, {
     repoPath,
     repoId,
-  });
+  }, { timeout: 10000 });
 };
 
 export const askAIService = async (repoId: string, question: string) => {
   const response = await axios.post(`${RAG_BASE_URL}/ask`, {
     repoId,
     question,
-  });
+  }, { timeout: 10000 });
 
   return {
     answer: response.data?.answer ?? "",

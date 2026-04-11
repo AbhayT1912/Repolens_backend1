@@ -110,14 +110,23 @@ export const generateRepoReport = async (repoId: string) => {
   const dependencyDensity = calculateDependencyDensity(files, edges);
 
   /* ================================
-     AI ARCHITECTURE SUMMARY
+     AI ARCHITECTURE SUMMARY (optional — RAG service may be unavailable)
   ================================= */
 
-  const aiResponse = await askAIService(
-    repoId,
-    "Provide a high level architecture overview of this repository.",
-  );
-  const architectureOverviewText = aiResponse?.answer || "";
+  let architectureOverviewText = "";
+  try {
+    const aiResponse = await askAIService(
+      repoId,
+      "Provide a high level architecture overview of this repository.",
+    );
+    architectureOverviewText = aiResponse?.answer || "";
+  } catch (aiErr: any) {
+    const { logger } = require("../config/logger");
+    logger.warn("AI architecture summary skipped (RAG service unavailable)", {
+      repo_id: repoId,
+      error: aiErr?.message,
+    });
+  }
 
   // 🔥 NEW — INVESTOR SUMMARY
   const investorSummary = buildInvestorSummary({

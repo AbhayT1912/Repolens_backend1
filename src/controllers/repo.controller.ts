@@ -10,6 +10,7 @@ import { UserModel } from "../models/user.model";
 import { deductUserCredits } from "../middleware/credit.middleware";
 import { CREDIT_COSTS } from "../config/creditCost.config";
 import { CREDITS_LIMIT } from "../config/creditPolicy.config";
+import { logger } from "../config/logger";
 
 export const analyzeRepository = asyncHandler(
   async (req: Request, res: Response) => {
@@ -27,6 +28,7 @@ export const analyzeRepository = asyncHandler(
     }
 
     // Duplicate protection
+    const STUCK_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
     const existingOwnedRepo = await RepoModel.findOne({
       repo_url,
       owner_id: userId,
@@ -34,11 +36,69 @@ export const analyzeRepository = asyncHandler(
     });
 
     if (existingOwnedRepo) {
+      const isReady = existingOwnedRepo.status === "READY";
+      const updatedAt = (existingOwnedRepo as any).updated_at as Date | undefined;
+      const isStuck =
+        !isReady &&
+        updatedAt &&
+        Date.now() - new Date(updatedAt).getTime() > STUCK_TIMEOUT_MS;
+
+      if (isReady) {
+        // Already done — just return the existing repo
+        return res.status(200).json({
+          success: true,
+          repo_id: existingOwnedRepo._id,
+          status: existingOwnedRepo.status,
+          message: "Repository already processed.",
+        });
+      }
+
+      if (isStuck) {
+        // Reset and reprocess — previously stuck due to server restart or error
+        logger.info("Re-processing previously stuck repo", {
+          repo_id: existingOwnedRepo._id.toString(),
+          stuck_status: existingOwnedRepo.status,
+          stuck_since: updatedAt,
+        });
+
+        await RepoModel.findByIdAndUpdate(existingOwnedRepo._id, {
+          status: "RECEIVED",
+          error_message: undefined,
+          started_at: undefined,
+          completed_at: undefined,
+        });
+
+        const repoIdStr = existingOwnedRepo._id.toString();
+
+        if (redisAvailable && repoQueue) {
+          await repoQueue.add("process-repo", {
+            repoUrl: repo_url,
+            repoId: repoIdStr,
+          });
+        } else {
+          const { processRepository } = await import("../services/repo.service");
+          processRepository(repo_url, repoIdStr).catch((err: any) => {
+            logger.error("Re-process of stuck repo failed", {
+              repo_id: repoIdStr,
+              error: err?.message,
+            });
+          });
+        }
+
+        return res.status(202).json({
+          success: true,
+          repo_id: existingOwnedRepo._id,
+          status: "RECEIVED",
+          message: "Repository was stuck — re-processing started.",
+        });
+      }
+
+      // Still actively processing (recently updated) — just return current status
       return res.status(200).json({
         success: true,
         repo_id: existingOwnedRepo._id,
         status: existingOwnedRepo.status,
-        message: "Repository already being processed or ready.",
+        message: "Repository is currently being processed.",
       });
     }
 
