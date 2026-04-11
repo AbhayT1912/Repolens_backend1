@@ -29,6 +29,11 @@ export const processRepository = async (repoUrl: string, repoId: string) => {
   const pipelineStartedAt = Date.now();
 
   try {
+    logger.info("Repository processing started", {
+      repo_id: repoId,
+      repo_url: repoUrl,
+    });
+
     await RepoModel.findByIdAndUpdate(repoId, {
       status: "CLONING",
       started_at: new Date(),

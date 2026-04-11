@@ -1,12 +1,23 @@
 import { Worker } from "bullmq";
 import { processRepository } from "../services/repo.service";
 import { logger } from "../config/logger";
-import { redisAvailable } from "../config/queue";
+import {
+  redisAvailable,
+  redisConnection,
+  setQueueMode,
+} from "../config/queue";
+
+type WorkerStatus = "disabled" | "initializing" | "ready" | "failed";
 
 let repoWorker: Worker | null = null;
+let workerStatus: WorkerStatus = "disabled";
 
-if (redisAvailable) {
-  const { repoQueue } = require("../config/queue");
+export const isWorkerReady = () => workerStatus === "ready";
+export const getWorkerStatus = () => workerStatus;
+
+if (redisAvailable && redisConnection) {
+  workerStatus = "initializing";
+  logger.info("Repo worker initialization started");
 
   try {
     repoWorker = new Worker(
@@ -17,41 +28,52 @@ if (redisAvailable) {
         logger.info("Worker started processing", {
           repo_id: repoId,
           repo_url: repoUrl,
+          job_id: job.id,
         });
 
         await processRepository(repoUrl, repoId);
       },
-      { connection: repoQueue?.client }
+      { connection: redisConnection }
     );
 
     repoWorker.on("ready", () => {
-      logger.info("✅ BullMQ Worker connected to Redis");
+      workerStatus = "ready";
+      setQueueMode("redis");
+      logger.info("BullMQ worker connected to Redis");
     });
 
     repoWorker.on("completed", (job) => {
       logger.info("Async job completed", {
-        jobId: job.id,
+        job_id: job.id,
       });
     });
 
     repoWorker.on("failed", (job, err) => {
       logger.error("Async job failed", {
-        jobId: job?.id,
+        job_id: job?.id,
         error: err.message,
       });
     });
 
-    // Suppress internal Redis connection errors
     repoWorker.on("error", (err) => {
-      logger.debug("Worker error (suppressed):", err.message);
+      workerStatus = "failed";
+      setQueueMode("degraded");
+      logger.error("Repo worker runtime error", {
+        error: err.message,
+      });
     });
-  } catch (error) {
-    logger.info("Failed to initialize worker");
+  } catch (error: any) {
+    workerStatus = "failed";
+    setQueueMode("degraded");
+    logger.error("Repo worker failed to initialize", {
+      error: error?.message,
+    });
     repoWorker = null;
   }
 } else {
+  workerStatus = "disabled";
   logger.info(
-    "⚠️  Redis not configured - async job queue disabled. Repositories will process synchronously."
+    "Redis not configured or unavailable - async job queue disabled. Repositories will process synchronously."
   );
 }
 

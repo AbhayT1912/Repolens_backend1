@@ -3,14 +3,20 @@ import IORedis from "ioredis";
 import { ENV } from "./env";
 import { logger } from "./logger";
 
-let connection: IORedis | null = null;
+export type QueueMode = "redis" | "degraded";
+
+let redisConnection: IORedis | null = null;
 let repoQueue: Queue | null = null;
 let redisAvailable = false;
-let queueMode: "redis" | "degraded" = "degraded";
+let queueMode: QueueMode = "degraded";
+
+export const setQueueMode = (nextMode: QueueMode) => {
+  queueMode = nextMode;
+};
 
 if (ENV.REDIS_URL) {
   try {
-    connection = new IORedis(ENV.REDIS_URL, {
+    redisConnection = new IORedis(ENV.REDIS_URL, {
       maxRetriesPerRequest: null,
       enableReadyCheck: false,
       enableOfflineQueue: false,
@@ -20,16 +26,19 @@ if (ENV.REDIS_URL) {
         return delay;
       },
     });
+
     redisAvailable = true;
     queueMode = "redis";
-    repoQueue = new Queue("repo-processing", { connection });
+    repoQueue = new Queue("repo-processing", { connection: redisConnection });
     logger.info("Redis queue initialized with REDIS_URL");
   } catch (error) {
     logger.warn("Failed to initialize Redis queue with REDIS_URL", { error });
+    redisAvailable = false;
+    queueMode = "degraded";
   }
 } else {
   try {
-    connection = new IORedis({
+    redisConnection = new IORedis({
       host: process.env.REDIS_HOST || "127.0.0.1",
       port: Number(process.env.REDIS_PORT || 6379),
       maxRetriesPerRequest: null,
@@ -44,13 +53,11 @@ if (ENV.REDIS_URL) {
       },
     });
 
-    connection.on("error", () => {
-      if (!redisAvailable) {
-        return;
-      }
+    redisConnection.on("error", () => {
+      if (!redisAvailable) return;
     });
 
-    connection.on("connect", () => {
+    redisConnection.on("connect", () => {
       redisAvailable = true;
       queueMode = "redis";
       logger.info("Redis queue connection established");
@@ -58,13 +65,15 @@ if (ENV.REDIS_URL) {
 
     redisAvailable = true;
     queueMode = "redis";
-    repoQueue = new Queue("repo-processing", { connection });
+    repoQueue = new Queue("repo-processing", { connection: redisConnection });
     logger.info("Redis queue initialized with local Redis");
   } catch (error) {
     logger.info("Redis not available - using synchronous processing", {
       error: (error as Error).message,
     });
+    redisAvailable = false;
+    queueMode = "degraded";
   }
 }
 
-export { repoQueue, redisAvailable, queueMode };
+export { redisConnection, repoQueue, redisAvailable, queueMode };

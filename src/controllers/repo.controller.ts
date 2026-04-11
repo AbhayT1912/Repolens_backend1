@@ -13,6 +13,60 @@ import { CREDIT_COSTS } from "../config/creditCost.config";
 import { CREDITS_LIMIT } from "../config/creditPolicy.config";
 import { logger } from "../config/logger";
 import { setNoStoreHeaders } from "../utils/cacheControl.util";
+import { getWorkerStatus, isWorkerReady } from "../workers/repo.worker";
+
+const STUCK_TIMEOUT_MS = 90 * 1000;
+
+const startDirectBackgroundProcessing = async (
+  repoUrl: string,
+  repoId: string,
+  logContext: Record<string, unknown>
+) => {
+  const { processRepository } = await import("../services/repo.service");
+
+  logger.warn("Falling back to direct background processing", {
+    ...logContext,
+    execution_path: "degraded_direct_background",
+    worker_status: getWorkerStatus(),
+    repo_id: repoId,
+  });
+
+  processRepository(repoUrl, repoId).catch((err: any) => {
+    logger.error("Background processRepository failed", {
+      repo_id: repoId,
+      error: err?.message,
+    });
+  });
+};
+
+const dispatchRepositoryProcessing = async (
+  repoUrl: string,
+  repoId: string,
+  logContext: Record<string, unknown>
+) => {
+  if (redisAvailable && repoQueue && isWorkerReady()) {
+    const job = await repoQueue.add("process-repo", {
+      repoUrl,
+      repoId,
+    });
+
+    logger.info("Repository queued for worker processing", {
+      ...logContext,
+      execution_path: "queued_to_worker",
+      queue_mode: "redis",
+      worker_status: getWorkerStatus(),
+      job_id: job.id,
+      repo_id: repoId,
+    });
+
+    return;
+  }
+
+  await startDirectBackgroundProcessing(repoUrl, repoId, {
+    ...logContext,
+    queue_mode: redisAvailable ? "redis_unhealthy" : "degraded",
+  });
+};
 
 export const analyzeRepository = asyncHandler(
   async (req: Request, res: Response) => {
@@ -29,8 +83,6 @@ export const analyzeRepository = asyncHandler(
       throw new AppError("Invalid GitHub repository URL format", 400);
     }
 
-    // Duplicate protection
-    const STUCK_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
     const existingOwnedRepo = await RepoModel.findOne({
       repo_url,
       owner_id: userId,
@@ -46,7 +98,6 @@ export const analyzeRepository = asyncHandler(
         Date.now() - new Date(updatedAt).getTime() > STUCK_TIMEOUT_MS;
 
       if (isReady) {
-        // Already done — just return the existing repo
         return res.status(200).json({
           success: true,
           repo_id: existingOwnedRepo._id,
@@ -56,7 +107,6 @@ export const analyzeRepository = asyncHandler(
       }
 
       if (isStuck) {
-        // Reset and reprocess — previously stuck due to server restart or error
         logger.info("Re-processing previously stuck repo", {
           repo_id: existingOwnedRepo._id.toString(),
           stuck_status: existingOwnedRepo.status,
@@ -72,30 +122,19 @@ export const analyzeRepository = asyncHandler(
 
         const repoIdStr = existingOwnedRepo._id.toString();
 
-        if (redisAvailable && repoQueue) {
-          await repoQueue.add("process-repo", {
-            repoUrl: repo_url,
-            repoId: repoIdStr,
-          });
-        } else {
-          const { processRepository } = await import("../services/repo.service");
-          processRepository(repo_url, repoIdStr).catch((err: any) => {
-            logger.error("Re-process of stuck repo failed", {
-              repo_id: repoIdStr,
-              error: err?.message,
-            });
-          });
-        }
+        await dispatchRepositoryProcessing(repo_url, repoIdStr, {
+          reprocess_reason: "stuck_repo_requeued",
+          previous_status: existingOwnedRepo.status,
+        });
 
         return res.status(202).json({
           success: true,
           repo_id: existingOwnedRepo._id,
           status: "RECEIVED",
-          message: "Repository was stuck — re-processing started.",
+          message: "Repository was stuck and re-processing has started.",
         });
       }
 
-      // Still actively processing (recently updated) — just return current status
       return res.status(200).json({
         success: true,
         repo_id: existingOwnedRepo._id,
@@ -121,9 +160,13 @@ export const analyzeRepository = asyncHandler(
       });
     } catch (error: any) {
       if (error?.code === 11000) {
-        const conflictingRepo = await RepoModel.findOne({ repo_url, owner_id: userId })
+        const conflictingRepo = await RepoModel.findOne({
+          repo_url,
+          owner_id: userId,
+        })
           .select("_id owner_id status")
           .lean();
+
         if (conflictingRepo) {
           return res.status(200).json({
             success: true,
@@ -133,6 +176,7 @@ export const analyzeRepository = asyncHandler(
           });
         }
       }
+
       throw error;
     }
 
@@ -142,23 +186,10 @@ export const analyzeRepository = asyncHandler(
       { upsert: true }
     );
 
-    // Queue job if Redis available, otherwise process directly (fire-and-forget)
-    if (redisAvailable && repoQueue) {
-      await repoQueue.add("process-repo", {
-        repoUrl: repo_url,
-        repoId: repo._id.toString(),
-      });
-    } else {
-      // Fallback: process synchronously in background (no Redis/worker available)
-      const { processRepository } = await import("../services/repo.service");
-      processRepository(repo_url, repo._id.toString()).catch((err: any) => {
-        const { logger } = require("../config/logger");
-        logger.error("Background processRepository failed", {
-          repo_id: repo._id.toString(),
-          error: err?.message,
-        });
-      });
-    }
+    await dispatchRepositoryProcessing(repo_url, repo._id.toString(), {
+      execution_reason: "new_analysis_request",
+      owner_id: userId,
+    });
 
     return res.status(202).json({
       success: true,
@@ -211,10 +242,6 @@ export const getRepositoryStatus = asyncHandler(
   }
 );
 
-/* =====================================================
-   GET USER REPOSITORIES (Dashboard Listing)
-===================================================== */
-
 export const getUserRepositories = asyncHandler(
   async (req: any, res: Response) => {
     const userId = req.auth.userId;
@@ -227,7 +254,6 @@ export const getUserRepositories = asyncHandler(
 
     const repoIds = repos.map((r) => r._id);
 
-    // Get latest report for each repo
     const latestReports = await RepoReportModel.aggregate([
       { $match: { repo_id: { $in: repoIds } } },
       { $sort: { version: -1 } },
@@ -255,8 +281,7 @@ export const getUserRepositories = asyncHandler(
         repo_name: repo.name,
         analyzed_at: latest?.created_at ?? null,
         latest_version: latest?.version ?? null,
-        architecture_score:
-          latest?.architecture_health_score ?? null,
+        architecture_score: latest?.architecture_health_score ?? null,
       };
     });
 

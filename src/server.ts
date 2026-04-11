@@ -3,22 +3,22 @@ import { ENV } from "./config/env";
 import { logger } from "./config/logger";
 import { connectDB } from "./config/database";
 import { queueMode } from "./config/queue";
-import "./workers/repo.worker";
+import { getWorkerStatus } from "./workers/repo.worker";
 import { RepoModel } from "./models/repo.model";
 import { processRepository } from "./services/repo.service";
 
 /**
  * On startup, recover repos that got stuck mid-processing due to a previous
  * server crash or restart (e.g., Render free tier sleep/wake cycle).
- * Repos stuck in non-terminal states for more than 2 minutes are re-queued.
+ * Repos stuck in non-terminal states for more than 90 seconds are re-queued.
  */
 const recoverStuckRepos = async () => {
   try {
-    const TWO_MINUTES_AGO = new Date(Date.now() - 2 * 60 * 1000);
+    const STUCK_CUTOFF = new Date(Date.now() - 90 * 1000);
 
     const stuckRepos = await RepoModel.find({
       status: { $in: ["RECEIVED", "CLONING", "SCANNING", "PARSING", "GRAPHING"] },
-      updated_at: { $lt: TWO_MINUTES_AGO },
+      updated_at: { $lt: STUCK_CUTOFF },
     }).lean();
 
     if (stuckRepos.length === 0) {
@@ -63,8 +63,19 @@ const startServer = async () => {
       redis_configured: Boolean(ENV.REDIS_URL),
     });
 
+    logger.info("Repo worker health at startup", {
+      worker_status: getWorkerStatus(),
+      queue_mode: queueMode,
+    });
+
     if (!ENV.REDIS_URL) {
       logger.warn("REDIS_URL is not configured. Production analysis will run in degraded synchronous mode.");
+    }
+
+    if (ENV.REDIS_URL && queueMode !== "redis") {
+      logger.warn(
+        "REDIS_URL is configured but queue mode is degraded. New analyses will fall back to direct background processing."
+      );
     }
 
     // Recover repos stuck from previous server instance
