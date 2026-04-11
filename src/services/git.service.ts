@@ -2,8 +2,9 @@ import { spawn } from "child_process";
 import fs from "fs-extra";
 import { AppError } from "../utils/AppError";
 import { logger } from "../config/logger";
+import { ENV } from "../config/env";
 
-const CLONE_TIMEOUT_MS = 2 * 60 * 1000; // 2 minutes
+const CLONE_TIMEOUT_MS = ENV.CLONE_TIMEOUT;
 
 export const cloneRepository = (
   repoUrl: string,
@@ -13,13 +14,7 @@ export const cloneRepository = (
   return new Promise((resolve, reject) => {
     logger.info("Clone started", { repo_id: repoId });
 
-    const gitProcess = spawn("git", [
-      "clone",
-      "--depth",
-      "1",
-      repoUrl,
-      repoPath,
-    ]);
+    const gitProcess = spawn("git", ["clone", "--depth", "1", repoUrl, repoPath]);
 
     let timeoutHandle: NodeJS.Timeout;
     let isSettled = false;
@@ -51,9 +46,8 @@ export const cloneRepository = (
       resolve();
     };
 
-    // 🔥 Hard Timeout
     timeoutHandle = setTimeout(() => {
-      finalize(new Error("Git clone timeout exceeded (2 minutes)"));
+      finalize(new Error(`Git clone timeout exceeded (${CLONE_TIMEOUT_MS}ms)`));
     }, CLONE_TIMEOUT_MS);
 
     gitProcess.on("close", (code) => {

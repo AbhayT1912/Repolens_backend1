@@ -12,6 +12,7 @@ import { deductUserCredits } from "../middleware/credit.middleware";
 import { CREDIT_COSTS } from "../config/creditCost.config";
 import { CREDITS_LIMIT } from "../config/creditPolicy.config";
 import { logger } from "../config/logger";
+import { setNoStoreHeaders } from "../utils/cacheControl.util";
 
 export const analyzeRepository = asyncHandler(
   async (req: Request, res: Response) => {
@@ -192,6 +193,8 @@ export const getRepositoryStatus = asyncHandler(
         message: "Repository not found",
       });
     }
+
+    setNoStoreHeaders(res);
 
     return res.status(200).json({
       success: true,

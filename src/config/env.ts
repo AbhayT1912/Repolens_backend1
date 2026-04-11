@@ -13,6 +13,9 @@ const envSchema = z.object({
   CLERK_SECRET_KEY: z.string(),
   CLERK_WEBHOOK_SECRET: z.string(),
   REDIS_URL: z.string().optional(), // Cloud deployments like Heroku
+  CORS_ORIGINS: z
+    .string()
+    .default("http://localhost:5173,https://repolens-sage.vercel.app"),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -32,4 +35,7 @@ export const ENV = {
   CLERK_SECRET_KEY: parsed.data.CLERK_SECRET_KEY,
   CLERK_WEBHOOK_SECRET: parsed.data.CLERK_WEBHOOK_SECRET,
   REDIS_URL: parsed.data.REDIS_URL,
+  CORS_ORIGINS: parsed.data.CORS_ORIGINS.split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean),
 };

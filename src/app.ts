@@ -11,7 +11,25 @@ import securityRoutes from "./routes/v1/security.routes";
 import authRoutes from "./routes/v1/auth.routes";
 import { handleGitHubWebhook } from "./controllers/pr.controller";
 
+const allowedOrigins = new Set(ENV.CORS_ORIGINS);
+const corsOptions = {
+  origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+    if (!origin) {
+      callback(null, true);
+      return;
+    }
 
+    if (allowedOrigins.has(origin)) {
+      callback(null, true);
+      return;
+    }
+
+    logger.warn("Blocked CORS origin", { origin });
+    callback(new Error("Not allowed by CORS"));
+  },
+  methods: ["GET", "POST", "PATCH", "OPTIONS"],
+  allowedHeaders: ["Authorization", "Content-Type"],
+};
 
 const app = express();
 
@@ -29,9 +47,9 @@ app.use(helmet({
   contentSecurityPolicy: false,
 }));
 
-app.use(cors({
-  origin: "*", // restrict later
-}));
+app.set("etag", false);
+app.use(cors(corsOptions));
+app.options(/.*/, cors(corsOptions));
 
 /* ========================
    REGISTER WEBHOOK WITH RAW BODY PARSING

@@ -304,4 +304,6 @@ export const parseRepository = async (repoId: string) => {
     skipped_files: skippedFiles,
     total_functions: totalFunctionCount,
   });
+
+  return totalFunctionCount;
 };

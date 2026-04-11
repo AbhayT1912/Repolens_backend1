@@ -6,9 +6,9 @@ import { logger } from "./logger";
 let connection: IORedis | null = null;
 let repoQueue: Queue | null = null;
 let redisAvailable = false;
+let queueMode: "redis" | "degraded" = "degraded";
 
 if (ENV.REDIS_URL) {
-  // Use cloud Redis (Heroku Redis, Redis Cloud, etc.)
   try {
     connection = new IORedis(ENV.REDIS_URL, {
       maxRetriesPerRequest: null,
@@ -21,13 +21,13 @@ if (ENV.REDIS_URL) {
       },
     });
     redisAvailable = true;
+    queueMode = "redis";
     repoQueue = new Queue("repo-processing", { connection });
-    logger.info("✅ Redis queue initialized with REDIS_URL");
+    logger.info("Redis queue initialized with REDIS_URL");
   } catch (error) {
     logger.warn("Failed to initialize Redis queue with REDIS_URL", { error });
   }
 } else {
-  // Try local Redis for development
   try {
     connection = new IORedis({
       host: process.env.REDIS_HOST || "127.0.0.1",
@@ -37,29 +37,29 @@ if (ENV.REDIS_URL) {
       retryStrategy: (times) => {
         if (times === 1) {
           logger.info(
-            "⚠️  Redis not available - job queue disabled. Repositories will process synchronously."
+            "Redis not available - job queue disabled. Repositories will process synchronously."
           );
         }
-        return null; // Stop retrying after first failure
+        return null;
       },
     });
 
-    // Suppress error logs from IORedis when not available
-    connection.on("error", (err) => {
+    connection.on("error", () => {
       if (!redisAvailable) {
-        // Silently ignore connection errors when we're in degraded mode
         return;
       }
     });
 
     connection.on("connect", () => {
       redisAvailable = true;
-      logger.info("✅ Redis queue connection established");
+      queueMode = "redis";
+      logger.info("Redis queue connection established");
     });
 
     redisAvailable = true;
+    queueMode = "redis";
     repoQueue = new Queue("repo-processing", { connection });
-    logger.info("✅ Redis queue initialized with local Redis");
+    logger.info("Redis queue initialized with local Redis");
   } catch (error) {
     logger.info("Redis not available - using synchronous processing", {
       error: (error as Error).message,
@@ -67,4 +67,4 @@ if (ENV.REDIS_URL) {
   }
 }
 
-export { repoQueue, redisAvailable };
+export { repoQueue, redisAvailable, queueMode };

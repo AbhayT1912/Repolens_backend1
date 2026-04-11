@@ -2,6 +2,7 @@ import app from "./app";
 import { ENV } from "./config/env";
 import { logger } from "./config/logger";
 import { connectDB } from "./config/database";
+import { queueMode } from "./config/queue";
 import "./workers/repo.worker";
 import { RepoModel } from "./models/repo.model";
 import { processRepository } from "./services/repo.service";
@@ -56,6 +57,15 @@ const recoverStuckRepos = async () => {
 const startServer = async () => {
   try {
     await connectDB();
+
+    logger.info("Analysis processing mode", {
+      queue_mode: queueMode,
+      redis_configured: Boolean(ENV.REDIS_URL),
+    });
+
+    if (!ENV.REDIS_URL) {
+      logger.warn("REDIS_URL is not configured. Production analysis will run in degraded synchronous mode.");
+    }
 
     // Recover repos stuck from previous server instance
     await recoverStuckRepos();

@@ -8,6 +8,7 @@ import { detectRegression, calculateVelocity, calculateVolatilityScore, predictD
 import { RepoModel } from "../models/repo.model";
 import { ImportModel } from "../models/import.model";
 import { FunctionModel } from "../models/function.model";
+import { setNoStoreHeaders } from "../utils/cacheControl.util";
 
 /* =====================================================
    TYPE FOR HISTORY SNAPSHOT (Fixes Red Underlines)
@@ -71,6 +72,8 @@ export const downloadExecutivePDF = async (req: any, res: any, next: any) => {
 
 export const getRepoReport = asyncHandler(async (req: Request, res: Response) => {
   const { repoId } = req.params;
+  setNoStoreHeaders(res);
+
   if (!mongoose.Types.ObjectId.isValid(repoId)) {
     return res.status(400).json({
       success: false,
@@ -143,6 +146,7 @@ export const getRepoReport = asyncHandler(async (req: Request, res: Response) =>
 
 export const getRepoHistory = async (req: Request, res: Response) => {
   const { repoId } = req.params;
+  setNoStoreHeaders(res);
 
   const repoObjectId = new mongoose.Types.ObjectId(repoId);
 

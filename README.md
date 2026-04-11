@@ -292,6 +292,7 @@ Create .env file:
 PORT=5000
 MONGO_URI=your_mongodb_uri
 REDIS_URL=your_redis_url
+CORS_ORIGINS=http://localhost:5173,https://repolens-sage.vercel.app
 RAG_SERVICE_URL=http://localhost:8000/ask
 NODE_ENV=development
 ▶️ Running Locally
