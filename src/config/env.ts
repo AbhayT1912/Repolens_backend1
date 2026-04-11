@@ -12,6 +12,7 @@ const envSchema = z.object({
   MONGO_URI: z.string(),
   CLERK_SECRET_KEY: z.string(),
   CLERK_WEBHOOK_SECRET: z.string(),
+  REDIS_URL: z.string().optional(), // Cloud deployments like Heroku
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -30,4 +31,5 @@ export const ENV = {
   MONGO_URI: parsed.data.MONGO_URI,
   CLERK_SECRET_KEY: parsed.data.CLERK_SECRET_KEY,
   CLERK_WEBHOOK_SECRET: parsed.data.CLERK_WEBHOOK_SECRET,
+  REDIS_URL: parsed.data.REDIS_URL,
 };

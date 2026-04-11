@@ -1,43 +1,46 @@
 import { Worker } from "bullmq";
-import IORedis from "ioredis";
 import { processRepository } from "../services/repo.service";
 import { logger } from "../config/logger";
+import { redisAvailable } from "../config/queue";
 
-const connection = new IORedis({
-  host: "127.0.0.1",
-  port: 6379,
-  maxRetriesPerRequest: null, // 🔥 REQUIRED FOR BULLMQ
-});
+let repoWorker: Worker | null = null;
 
-export const repoWorker = new Worker(
-  "repo-processing",
-  async (job) => {
-    const { repoUrl, repoId } = job.data;
+if (redisAvailable) {
+  const { repoQueue } = require("../config/queue");
 
-    logger.info("Worker started processing", {
-      repo_id: repoId,
-      repo_url: repoUrl,
+  repoWorker = new Worker(
+    "repo-processing",
+    async (job) => {
+      const { repoUrl, repoId } = job.data;
+
+      logger.info("Worker started processing", {
+        repo_id: repoId,
+        repo_url: repoUrl,
+      });
+
+      await processRepository(repoUrl, repoId);
+    },
+    { connection: repoQueue?.client }
+  );
+
+  repoWorker.on("ready", () => {
+    logger.info("Worker connected to Redis");
+  });
+
+  repoWorker.on("completed", (job) => {
+    logger.info("Job completed", {
+      jobId: job.id,
     });
-
-    await processRepository(repoUrl, repoId);
-  },
-  { connection }
-);
-
-repoWorker.on("ready", () => {
-  logger.info("Worker connected to Redis");
-});
-
-
-repoWorker.on("completed", (job) => {
-  logger.info("Job completed", {
-    jobId: job.id,
   });
-});
 
-repoWorker.on("failed", (job, err) => {
-  logger.error("Job failed", {
-    jobId: job?.id,
-    error: err.message,
+  repoWorker.on("failed", (job, err) => {
+    logger.error("Job failed", {
+      jobId: job?.id,
+      error: err.message,
+    });
   });
-});
+} else {
+  logger.info("Redis not configured - async job queue disabled");
+}
+
+export { repoWorker };

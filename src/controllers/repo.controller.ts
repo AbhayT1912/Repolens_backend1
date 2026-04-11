@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { asyncHandler } from "../utils/asyncHandler";
-import { repoQueue } from "../config/queue";
+import { repoQueue, redisAvailable } from "../config/queue";
 import { RepoModel } from "../models/repo.model";
 import { normalizeRepoUrl, validateGithubRepoUrl } from "../utils/repoUrl.util";
 import { AppError } from "../utils/AppError";
@@ -74,16 +74,19 @@ export const analyzeRepository = asyncHandler(
       throw error;
     }
 
-    await repoQueue.add("process-repo", {
-      repoUrl: repo_url,
-      repoId: repo._id.toString(),
-    });
-
     await UsageModel.updateOne(
       { user_id: userId },
       { $inc: { analyses_count: 1 } },
       { upsert: true }
     );
+
+    // Queue job if Redis available, otherwise it will be processed manually
+    if (redisAvailable && repoQueue) {
+      await repoQueue.add("process-repo", {
+        repoUrl: repo_url,
+        repoId: repo._id.toString(),
+      });
+    }
 
     return res.status(202).json({
       success: true,
