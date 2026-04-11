@@ -80,11 +80,21 @@ export const analyzeRepository = asyncHandler(
       { upsert: true }
     );
 
-    // Queue job if Redis available, otherwise it will be processed manually
+    // Queue job if Redis available, otherwise process directly (fire-and-forget)
     if (redisAvailable && repoQueue) {
       await repoQueue.add("process-repo", {
         repoUrl: repo_url,
         repoId: repo._id.toString(),
+      });
+    } else {
+      // Fallback: process synchronously in background (no Redis/worker available)
+      const { processRepository } = await import("../services/repo.service");
+      processRepository(repo_url, repo._id.toString()).catch((err: any) => {
+        const { logger } = require("../config/logger");
+        logger.error("Background processRepository failed", {
+          repo_id: repo._id.toString(),
+          error: err?.message,
+        });
       });
     }
 

@@ -6,9 +6,9 @@ dotenv.config();
 const envSchema = z.object({
   PORT: z.string().default("5000"),
   NODE_ENV: z.string(),
-  MAX_REPO_SIZE_MB: z.string(),
-  CLONE_TIMEOUT: z.string(),
-  TEMP_DIR_PATH: z.string(),
+  MAX_REPO_SIZE_MB: z.string().default("500"),
+  CLONE_TIMEOUT: z.string().default("60000"),
+  TEMP_DIR_PATH: z.string().default("/tmp/repos"),
   MONGO_URI: z.string(),
   CLERK_SECRET_KEY: z.string(),
   CLERK_WEBHOOK_SECRET: z.string(),
