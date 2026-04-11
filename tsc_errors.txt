@@ -1,0 +1,119 @@
+﻿src/app.ts(3,18): error TS7016: Could not find a declaration file for module 'cors'. 'C:/Users/ASUS/OneDrive/Desktop/ace/HackX/Repolens_backend1/node_modules/cors/lib/index.js' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/cors` if it exists or add a new declaration (.d.ts) file containing `declare module 'cors';`
+src/config/queue.ts(24,48): error TS2322: Type 'Redis' is not assignable to type 'ConnectionOptions'.
+  Type 'Redis' is not assignable to type 'Redis | Cluster | ClusterOptions'.
+    Type 'import("C:/Users/ASUS/OneDrive/Desktop/ace/HackX/Repolens_backend1/node_modules/ioredis/built/Redis").default' is not assignable to type 'import("C:/Users/ASUS/OneDrive/Desktop/ace/HackX/Repolens_backend1/node_modules/bullmq/node_modules/ioredis/built/Redis").default'.
+      Types of property 'options' are incompatible.
+        Type 'import("C:/Users/ASUS/OneDrive/Desktop/ace/HackX/Repolens_backend1/node_modules/ioredis/built/redis/RedisOptions").RedisOptions' is not assignable to type 'import("C:/Users/ASUS/OneDrive/Desktop/ace/HackX/Repolens_backend1/node_modules/bullmq/node_modules/ioredis/built/redis/RedisOptions").RedisOptions'.
+          Type 'RedisOptions' is not assignable to type 'CommonRedisOptions'.
+            Types of property 'Connector' are incompatible.
+              Type 'import("C:/Users/ASUS/OneDrive/Desktop/ace/HackX/Repolens_backend1/node_modules/ioredis/built/connectors/ConnectorConstructor").default | undefined' is not assignable to type 'import("C:/Users/ASUS/OneDrive/Desktop/ace/HackX/Repolens_backend1/node_modules/bullmq/node_modules/ioredis/built/connectors/ConnectorConstructor").default | undefined'.
+                Type 'import("C:/Users/ASUS/OneDrive/Desktop/ace/HackX/Repolens_backend1/node_modules/ioredis/built/connectors/ConnectorConstructor").default' is not assignable to type 'import("C:/Users/ASUS/OneDrive/Desktop/ace/HackX/Repolens_backend1/node_modules/bullmq/node_modules/ioredis/built/connectors/ConnectorConstructor").default'.
+                  Type 'import("C:/Users/ASUS/OneDrive/Desktop/ace/HackX/Repolens_backend1/node_modules/ioredis/built/connectors/AbstractConnector").default' is not assignable to type 'import("C:/Users/ASUS/OneDrive/Desktop/ace/HackX/Repolens_backend1/node_modules/bullmq/node_modules/ioredis/built/connectors/AbstractConnector").default'.
+                    Property 'connecting' is protected but type 'AbstractConnector' is not a class derived from 'AbstractConnector'.
+src/config/queue.ts(61,48): error TS2322: Type 'Redis' is not assignable to type 'ConnectionOptions'.
+  Type 'Redis' is not assignable to type 'Redis | Cluster | ClusterOptions'.
+    Type 'import("C:/Users/ASUS/OneDrive/Desktop/ace/HackX/Repolens_backend1/node_modules/ioredis/built/Redis").default' is not assignable to type 'import("C:/Users/ASUS/OneDrive/Desktop/ace/HackX/Repolens_backend1/node_modules/bullmq/node_modules/ioredis/built/Redis").default'.
+      Types of property 'options' are incompatible.
+        Type 'import("C:/Users/ASUS/OneDrive/Desktop/ace/HackX/Repolens_backend1/node_modules/ioredis/built/redis/RedisOptions").RedisOptions' is not assignable to type 'import("C:/Users/ASUS/OneDrive/Desktop/ace/HackX/Repolens_backend1/node_modules/bullmq/node_modules/ioredis/built/redis/RedisOptions").RedisOptions'.
+          Type 'RedisOptions' is not assignable to type 'CommonRedisOptions'.
+            Types of property 'Connector' are incompatible.
+              Type 'import("C:/Users/ASUS/OneDrive/Desktop/ace/HackX/Repolens_backend1/node_modules/ioredis/built/connectors/ConnectorConstructor").default | undefined' is not assignable to type 'import("C:/Users/ASUS/OneDrive/Desktop/ace/HackX/Repolens_backend1/node_modules/bullmq/node_modules/ioredis/built/connectors/ConnectorConstructor").default | undefined'.
+                Type 'import("C:/Users/ASUS/OneDrive/Desktop/ace/HackX/Repolens_backend1/node_modules/ioredis/built/connectors/ConnectorConstructor").default' is not assignable to type 'import("C:/Users/ASUS/OneDrive/Desktop/ace/HackX/Repolens_backend1/node_modules/bullmq/node_modules/ioredis/built/connectors/ConnectorConstructor").default'.
+                  Type 'import("C:/Users/ASUS/OneDrive/Desktop/ace/HackX/Repolens_backend1/node_modules/ioredis/built/connectors/AbstractConnector").default' is not assignable to type 'import("C:/Users/ASUS/OneDrive/Desktop/ace/HackX/Repolens_backend1/node_modules/bullmq/node_modules/ioredis/built/connectors/AbstractConnector").default'.
+                    Property 'connecting' is protected but type 'AbstractConnector' is not a class derived from 'AbstractConnector'.
+src/controllers/fileGraph.controller.ts(116,42): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string | number | ObjectId | Uint8Array<ArrayBufferLike> | ObjectIdLike'.
+  Type 'string[]' is not assignable to type 'string | number | ObjectId | Uint8Array<ArrayBufferLike> | ObjectIdLike'.
+    Type 'string[]' is missing the following properties from type 'Uint8Array<ArrayBufferLike>': BYTES_PER_ELEMENT, buffer, byteLength, byteOffset, and 3 more.
+src/controllers/fileGraph.controller.ts(120,54): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Argument of type 'string | string[]' is not assignable to parameter of type 'string | number | ObjectId | Uint8Array<ArrayBufferLike> | ObjectIdLike | undefined'.
+      Type 'string[]' is not assignable to type 'string | number | ObjectId | Uint8Array<ArrayBufferLike> | ObjectIdLike | undefined'.
+        Type 'string[]' is missing the following properties from type 'Uint8Array<ArrayBufferLike>': BYTES_PER_ELEMENT, buffer, byteLength, byteOffset, and 3 more.
+src/controllers/graph.controller.ts(12,42): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string | number | ObjectId | Uint8Array<ArrayBufferLike> | ObjectIdLike'.
+  Type 'string[]' is not assignable to type 'string | number | ObjectId | Uint8Array<ArrayBufferLike> | ObjectIdLike'.
+    Type 'string[]' is missing the following properties from type 'Uint8Array<ArrayBufferLike>': BYTES_PER_ELEMENT, buffer, byteLength, byteOffset, and 3 more.
+src/controllers/graph.controller.ts(16,54): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Argument of type 'string | string[]' is not assignable to parameter of type 'string | number | ObjectId | Uint8Array<ArrayBufferLike> | ObjectIdLike | undefined'.
+      Type 'string[]' is not assignable to type 'string | number | ObjectId | Uint8Array<ArrayBufferLike> | ObjectIdLike | undefined'.
+        Type 'string[]' is missing the following properties from type 'Uint8Array<ArrayBufferLike>': BYTES_PER_ELEMENT, buffer, byteLength, byteOffset, and 3 more.
+src/controllers/impactAnalysis.controller.ts(15,42): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string | number | ObjectId | Uint8Array<ArrayBufferLike> | ObjectIdLike'.
+  Type 'string[]' is not assignable to type 'string | number | ObjectId | Uint8Array<ArrayBufferLike> | ObjectIdLike'.
+    Type 'string[]' is missing the following properties from type 'Uint8Array<ArrayBufferLike>': BYTES_PER_ELEMENT, buffer, byteLength, byteOffset, and 3 more.
+src/controllers/impactAnalysis.controller.ts(30,38): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+src/controllers/layerDetection.controller.ts(13,42): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string | number | ObjectId | Uint8Array<ArrayBufferLike> | ObjectIdLike'.
+  Type 'string[]' is not assignable to type 'string | number | ObjectId | Uint8Array<ArrayBufferLike> | ObjectIdLike'.
+    Type 'string[]' is missing the following properties from type 'Uint8Array<ArrayBufferLike>': BYTES_PER_ELEMENT, buffer, byteLength, byteOffset, and 3 more.
+src/controllers/pr.controller.ts(282,40): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string | number | ObjectId | Uint8Array<ArrayBufferLike> | ObjectIdLike'.
+  Type 'string[]' is not assignable to type 'string | number | ObjectId | Uint8Array<ArrayBufferLike> | ObjectIdLike'.
+    Type 'string[]' is missing the following properties from type 'Uint8Array<ArrayBufferLike>': BYTES_PER_ELEMENT, buffer, byteLength, byteOffset, and 3 more.
+src/controllers/pr.controller.ts(288,25): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+src/controllers/pr.controller.ts(310,40): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string | number | ObjectId | Uint8Array<ArrayBufferLike> | ObjectIdLike'.
+  Type 'string[]' is not assignable to type 'string | number | ObjectId | Uint8Array<ArrayBufferLike> | ObjectIdLike'.
+    Type 'string[]' is missing the following properties from type 'Uint8Array<ArrayBufferLike>': BYTES_PER_ELEMENT, buffer, byteLength, byteOffset, and 3 more.
+src/controllers/pr.controller.ts(338,40): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string | number | ObjectId | Uint8Array<ArrayBufferLike> | ObjectIdLike'.
+  Type 'string[]' is not assignable to type 'string | number | ObjectId | Uint8Array<ArrayBufferLike> | ObjectIdLike'.
+    Type 'string[]' is missing the following properties from type 'Uint8Array<ArrayBufferLike>': BYTES_PER_ELEMENT, buffer, byteLength, byteOffset, and 3 more.
+src/controllers/repo.controller.ts(210,25): error TS2339: Property 'name' does not exist on type 'FlattenMaps<RepoDocument> & Required<{ _id: ObjectId; }> & { __v: number; }'.
+src/controllers/report.controller.ts(74,40): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string | number | ObjectId | Uint8Array<ArrayBufferLike> | ObjectIdLike'.
+  Type 'string[]' is not assignable to type 'string | number | ObjectId | Uint8Array<ArrayBufferLike> | ObjectIdLike'.
+    Type 'string[]' is missing the following properties from type 'Uint8Array<ArrayBufferLike>': BYTES_PER_ELEMENT, buffer, byteLength, byteOffset, and 3 more.
+src/controllers/report.controller.ts(81,52): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Argument of type 'string | string[]' is not assignable to parameter of type 'string | number | ObjectId | Uint8Array<ArrayBufferLike> | ObjectIdLike | undefined'.
+      Type 'string[]' is not assignable to type 'string | number | ObjectId | Uint8Array<ArrayBufferLike> | ObjectIdLike | undefined'.
+        Type 'string[]' is missing the following properties from type 'Uint8Array<ArrayBufferLike>': BYTES_PER_ELEMENT, buffer, byteLength, byteOffset, and 3 more.
+src/controllers/report.controller.ts(147,52): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Argument of type 'string | string[]' is not assignable to parameter of type 'string | number | ObjectId | Uint8Array<ArrayBufferLike> | ObjectIdLike | undefined'.
+      Type 'string[]' is not assignable to type 'string | number | ObjectId | Uint8Array<ArrayBufferLike> | ObjectIdLike | undefined'.
+        Type 'string[]' is missing the following properties from type 'Uint8Array<ArrayBufferLike>': BYTES_PER_ELEMENT, buffer, byteLength, byteOffset, and 3 more.
+src/controllers/security.controller.ts(125,12): error TS2552: Cannot find name 'sendResponse'. Did you mean 'Response'?
+src/controllers/security.controller.ts(130,38): error TS2339: Property 'user' does not exist on type 'Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>'.
+src/controllers/security.controller.ts(131,12): error TS2552: Cannot find name 'sendResponse'. Did you mean 'Response'?
+src/controllers/security.controller.ts(134,3): error TS2552: Cannot find name 'sendResponse'. Did you mean 'Response'?
+src/controllers/security.controller.ts(145,12): error TS2552: Cannot find name 'sendResponse'. Did you mean 'Response'?
+src/controllers/security.controller.ts(150,12): error TS2552: Cannot find name 'sendResponse'. Did you mean 'Response'?
+src/controllers/security.controller.ts(155,38): error TS2339: Property 'user' does not exist on type 'Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>'.
+src/controllers/security.controller.ts(156,12): error TS2552: Cannot find name 'sendResponse'. Did you mean 'Response'?
+src/controllers/security.controller.ts(166,3): error TS2552: Cannot find name 'sendResponse'. Did you mean 'Response'?
+src/controllers/security.controller.ts(179,38): error TS2339: Property 'user' does not exist on type 'Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>'.
+src/controllers/security.controller.ts(180,12): error TS2552: Cannot find name 'sendResponse'. Did you mean 'Response'?
+src/controllers/security.controller.ts(184,42): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Argument of type 'string | string[]' is not assignable to parameter of type 'string | number | ObjectId | Uint8Array<ArrayBufferLike> | ObjectIdLike | undefined'.
+      Type 'string[]' is not assignable to type 'string | number | ObjectId | Uint8Array<ArrayBufferLike> | ObjectIdLike | undefined'.
+        Type 'string[]' is missing the following properties from type 'Uint8Array<ArrayBufferLike>': BYTES_PER_ELEMENT, buffer, byteLength, byteOffset, and 3 more.
+src/controllers/security.controller.ts(190,3): error TS2552: Cannot find name 'sendResponse'. Did you mean 'Response'?
+src/controllers/security.controller.ts(200,38): error TS2339: Property 'user' does not exist on type 'Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>'.
+src/controllers/security.controller.ts(201,12): error TS2304: Cannot find name 'sendResponse'.
+src/controllers/security.controller.ts(205,42): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Argument of type 'string | string[]' is not assignable to parameter of type 'string | number | ObjectId | Uint8Array<ArrayBufferLike> | ObjectIdLike | undefined'.
+      Type 'string[]' is not assignable to type 'string | number | ObjectId | Uint8Array<ArrayBufferLike> | ObjectIdLike | undefined'.
+        Type 'string[]' is missing the following properties from type 'Uint8Array<ArrayBufferLike>': BYTES_PER_ELEMENT, buffer, byteLength, byteOffset, and 3 more.
+src/controllers/security.controller.ts(211,3): error TS2552: Cannot find name 'sendResponse'. Did you mean 'Response'?
+src/controllers/security.controller.ts(224,38): error TS2339: Property 'user' does not exist on type 'Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>'.
+src/controllers/security.controller.ts(225,12): error TS2304: Cannot find name 'sendResponse'.
+src/controllers/security.controller.ts(229,42): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Argument of type 'string | string[]' is not assignable to parameter of type 'string | number | ObjectId | Uint8Array<ArrayBufferLike> | ObjectIdLike | undefined'.
+      Type 'string[]' is not assignable to type 'string | number | ObjectId | Uint8Array<ArrayBufferLike> | ObjectIdLike | undefined'.
+        Type 'string[]' is missing the following properties from type 'Uint8Array<ArrayBufferLike>': BYTES_PER_ELEMENT, buffer, byteLength, byteOffset, and 3 more.
+src/controllers/structure.controller.ts(13,42): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string | number | ObjectId | Uint8Array<ArrayBufferLike> | ObjectIdLike'.
+  Type 'string[]' is not assignable to type 'string | number | ObjectId | Uint8Array<ArrayBufferLike> | ObjectIdLike'.
+    Type 'string[]' is missing the following properties from type 'Uint8Array<ArrayBufferLike>': BYTES_PER_ELEMENT, buffer, byteLength, byteOffset, and 3 more.
+src/controllers/structure.controller.ts(17,54): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Argument of type 'string | string[]' is not assignable to parameter of type 'string | number | ObjectId | Uint8Array<ArrayBufferLike> | ObjectIdLike | undefined'.
+      Type 'string[]' is not assignable to type 'string | number | ObjectId | Uint8Array<ArrayBufferLike> | ObjectIdLike | undefined'.
+        Type 'string[]' is missing the following properties from type 'Uint8Array<ArrayBufferLike>': BYTES_PER_ELEMENT, buffer, byteLength, byteOffset, and 3 more.
+src/controllers/structure.controller.ts(46,18): error TS2339: Property 'type' does not exist on type 'FlattenMaps<FunctionDocument> & Required<{ _id: ObjectId; }> & { __v: number; }'.
+src/services/git.service.ts(2,16): error TS7016: Could not find a declaration file for module 'fs-extra'. 'C:/Users/ASUS/OneDrive/Desktop/ace/HackX/Repolens_backend1/node_modules/fs-extra/lib/index.js' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/fs-extra` if it exists or add a new declaration (.d.ts) file containing `declare module 'fs-extra';`
+src/utils/repoCleanup.ts(1,16): error TS7016: Could not find a declaration file for module 'fs-extra'. 'C:/Users/ASUS/OneDrive/Desktop/ace/HackX/Repolens_backend1/node_modules/fs-extra/lib/index.js' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/fs-extra` if it exists or add a new declaration (.d.ts) file containing `declare module 'fs-extra';`
+src/utils/repoLifecycle.util.ts(4,7): error TS2741: Property 'GRAPHING' is missing in type '{ RECEIVED: ("CLONING" | "FAILED")[]; CLONING: ("SCANNING" | "FAILED")[]; SCANNING: ("PARSING" | "FAILED")[]; PARSING: ("READY" | "FAILED")[]; READY: never[]; FAILED: never[]; }' but required in type 'Record<RepoStatus, RepoStatus[]>'.
